@@ -146,9 +146,12 @@ class App:
         self.pause_btn = tk.Button(row, text="暂停", command=self.on_pause, width=8, state="disabled")
         self.pause_btn.pack(side="left", padx=8)
         tk.Button(row, text="保存", command=self.on_save, width=8).pack(side="left", padx=8)
+        tk.Button(row, text="恢复", command=self.on_restore, width=8).pack(side="left", padx=8)
 
         self.status_var = tk.StringVar(value="")
         tk.Label(f, textvariable=self.status_var, anchor="w").pack(fill="x", **pad)
+        hotkey_hint = "热键：4 延迟-5ms | 5 延迟+5ms | 6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换"
+        tk.Label(f, text=hotkey_hint, anchor="w", fg="#666666").pack(fill="x", **pad)
 
     def status(self, msg: str) -> None:
         """线程安全的状态栏更新（经消息队列转发到主线程）。"""
@@ -517,6 +520,46 @@ class App:
         }
         save_config(CONFIG_PATH, cfg)
         self.status("设置已保存到 config.json")
+
+    def on_restore(self) -> None:
+        """读取配置文件并应用全部设置。"""
+        cfg = load_config(CONFIG_PATH)
+        self.cfg = cfg
+        self.rel_y = float(cfg["judgement_line_y"])
+        self.judgement_px = int(cfg.get("judgement_line_px", 0))
+        self.column_xs = [c["x"] for c in cfg["columns"]]
+        self.keys = [c["key"] for c in cfg["columns"]]
+        self.delay_ms = int(cfg["delay_ms"])
+        self.matcher = ColorMatcher(tolerance=int(cfg["tolerance"]))
+        for c in cfg.get("background_colors", []):
+            self.matcher.add_background(tuple(c))
+        for c in cfg.get("key_colors", []):
+            self.matcher.add_key(tuple(c))
+
+        # UI 回显
+        self.key_string_var.set(str(cfg.get("key_string", "")))
+        self.col_count_var.set(str(cfg.get("column_count", len(self.column_xs) or 4)))
+        self.key_count_var.set(str(cfg.get("key_color_count", 1)))
+        self.delay_var.set(str(self.delay_ms))
+        win_h = max(1, self.root.winfo_height())
+        if self.judgement_px > 0:
+            self.judgement_var.set(str(self.judgement_px))
+        else:
+            self.judgement_var.set(str(int(self.rel_y * win_h)))
+
+        # 窗口大小
+        size = cfg.get("window_size", [0, 0])
+        if isinstance(size, (list, tuple)) and len(size) == 2 and size[0] > 0 and size[1] > 0:
+            self.root.geometry(f"{int(size[0])}x{int(size[1])}")
+
+        # 判定线按像素换算（若已选游戏窗口）
+        if self.game_rect and self.judgement_px > 0:
+            h = max(1, self.game_rect[3] - self.game_rect[1])
+            self.rel_y = max(0.0, min(1.0, self.judgement_px / h))
+
+        self._refresh_swatches()
+        self._refresh_tracking()
+        self.status("已从配置文件恢复设置")
 
     # ---------- 全局输入 ----------
     def on_hotkey(self, key: str) -> None:
