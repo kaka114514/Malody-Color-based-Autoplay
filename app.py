@@ -1,10 +1,13 @@
 """主控制界面：布局、模式状态机、线程协调。"""
 
+import logging
 import queue
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox
 from typing import List, Optional, Tuple
+
+import win32gui
 
 import window_utils as wu
 from autoplay import AutoplayEngine
@@ -18,6 +21,8 @@ from overlay import Overlay
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.json"
 CURSOR_PATH = BASE_DIR / "cursor.cur"
+
+log = logging.getLogger("autoplay_debug")
 
 
 class App:
@@ -184,18 +189,25 @@ class App:
         self.status("请在游戏窗口上点击左键")
 
     def select_game_window(self, hwnd: int) -> None:
+        log.info("select_game_window hwnd=%s own_root=%s own_overlay=%s",
+                 hwnd, int(self.root.winfo_id()), self.overlay.hwnd)
         self.game_hwnd = hwnd
         self._refresh_tracking()
         self.mode = "idle"
+        log.info("after select: mode=%s game_hwnd=%s", self.mode, self.game_hwnd)
         self.status("已选择游戏窗口（黄色线框）")
 
     def _refresh_tracking(self) -> None:
         if not self.game_hwnd:
             return
         if wu.is_minimized(self.game_hwnd) or not wu.is_visible(self.game_hwnd):
+            log.info("tracking: window hidden/minimized hwnd=%s minimized=%s visible=%s",
+                     self.game_hwnd, wu.is_minimized(self.game_hwnd), wu.is_visible(self.game_hwnd))
             self.overlay.hide()
             return
         self.game_rect = wu.get_window_rect(self.game_hwnd)
+        log.info("tracking: rect=%s overlay_visible=%s", self.game_rect,
+                 bool(self.overlay.hwnd and win32gui.IsWindowVisible(self.overlay.hwnd)))
         self.overlay.set_game_rect(self.game_rect)
         self.overlay.set_judgement_y(self.rel_y)
         self.overlay.set_columns(self.column_xs, self.selected_col)
@@ -458,9 +470,11 @@ class App:
 
     def _on_left_click(self) -> None:
         x, y = MouseReader.cursor_pos()
+        log.info("left click mode=%s at (%s,%s)", self.mode, x, y)
         if self.mode == "select_window":
             hwnd = wu.find_window_at_point(x, y)
-            own = {int(self.root.winfo_id()), int(self.overlay._window.winfo_id())}
+            own = {int(self.root.winfo_id()), self.overlay.hwnd}
+            log.info("select hit: hwnd=%s own=%s", hwnd, hwnd in own)
             if hwnd and hwnd not in own:
                 self.select_game_window(hwnd)
         elif self.mode == "judgement":
@@ -514,5 +528,6 @@ class App:
         if self.engine:
             self.engine.stop()
         self._hook.stop()
+        self.overlay.destroy()
         restore_system_cursor()
         self.root.destroy()
