@@ -15,7 +15,7 @@ from capture import grab_rect, sample_pixel
 from color_matcher import ColorMatcher
 from config import load_config, save_config
 from input_hook import GlobalKeyHook, MouseReader, restore_system_cursor, set_global_cursor
-from overlay import Overlay
+from overlay import BLUE, YELLOW, Overlay
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -44,6 +44,8 @@ class App:
         self.eyedrop_active = False
         self.selected_col = -1
         self._overlay_visible = True
+        self._frame_blue = False
+        self._applying = False
         self.engine: Optional[AutoplayEngine] = None
         self._last_left = False
         self._closing = False
@@ -51,6 +53,7 @@ class App:
 
         self.overlay = Overlay(root)
         self.overlay.hide()
+        self.overlay.set_click_callback(self._on_overlay_click)
 
         self._build_ui()
         self._restore_matcher()
@@ -63,6 +66,7 @@ class App:
         self.root.after(30, self._tick_mouse)
         self.root.after(50, self._tick_messages)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.root.bind("<Button-1>", self._on_ui_click)
         self.status("就绪：先选择游戏窗口")
 
     # ---------- 界面构建 ----------
@@ -80,6 +84,7 @@ class App:
         ent = tk.Entry(row, textvariable=self.judgement_var, width=8)
         ent.pack(side="left", padx=4)
         ent.bind("<Return>", lambda _e: self.apply_judgement_entry())
+        self.judgement_var.trace_add("write", self._judgement_trace)
         tk.Button(row, text="设置(1上/2下/3结束)", command=self.on_judgement).pack(side="left", padx=4)
 
         row = tk.Frame(f)
@@ -92,6 +97,7 @@ class App:
         ent = tk.Entry(row, textvariable=self.key_string_var, width=14)
         ent.pack(side="left", padx=4)
         ent.bind("<Return>", lambda _e: self.apply_key_string())
+        self.key_string_var.trace_add("write", self._key_trace)
         tk.Button(row, text="设置列(左键添加/选中)", command=self.on_columns).pack(side="left", padx=4)
 
         row = tk.Frame(f)
@@ -117,6 +123,7 @@ class App:
         ent = tk.Entry(row, textvariable=self.delay_var, width=8)
         ent.pack(side="left", padx=4)
         ent.bind("<Return>", lambda _e: self.apply_delay_entry())
+        self.delay_var.trace_add("write", self._delay_trace)
         tk.Label(row, text="运行中 4=提前5ms 5=推后5ms").pack(side="left")
 
         row = tk.Frame(f)
@@ -136,6 +143,50 @@ class App:
             self._msg_queue.put_nowait(("status", msg))
         except queue.Full:
             pass
+
+    def _judgement_trace(self, *_args) -> None:
+        if self._applying:
+            return
+        self._applying = True
+        try:
+            self.apply_judgement_entry()
+        finally:
+            self._applying = False
+
+    def _key_trace(self, *_args) -> None:
+        if self._applying:
+            return
+        self._applying = True
+        try:
+            self.apply_key_string()
+        finally:
+            self._applying = False
+
+    def _delay_trace(self, *_args) -> None:
+        if self._applying:
+            return
+        self._applying = True
+        try:
+            self.apply_delay_entry()
+        finally:
+            self._applying = False
+
+    def _on_ui_click(self, _event) -> None:
+        """点击程序窗口任意按钮/空白处，取消吸管光标状态。"""
+        if self.eyedrop_active:
+            self.eyedrop_active = False
+            restore_system_cursor()
+            self.status("已取消吸管")
+
+    def _on_overlay_click(self, sx: int, sy: int) -> None:
+        """蓝框采集模式：点击被覆盖层捕获时，读取坐标与颜色。"""
+        try:
+            img = grab_rect((sx, sy, sx + 1, sy + 1))
+            color = sample_pixel(img, 0, 0)
+        except Exception as exc:
+            self.status(f"读取颜色失败: {exc}")
+            return
+        self.status(f"坐标 ({sx}, {sy})  颜色 RGB{tuple(color)}")
 
     def _tick_messages(self) -> None:
         try:
@@ -448,6 +499,16 @@ class App:
             self._overlay_visible = True
             self._refresh_tracking()
             self.status("覆盖层已显示")
+            return
+        if key == "8":
+            # 切换黄框/蓝框采集模式
+            self._frame_blue = not self._frame_blue
+            self.overlay.set_frame_color(BLUE if self._frame_blue else YELLOW)
+            self.overlay.set_click_block(self._frame_blue)
+            if self._frame_blue:
+                self.status("蓝框采集模式：点击游戏抓取坐标/颜色（再按8返回）")
+            else:
+                self.status("黄框正常模式：点击穿透")
             return
         if self.mode == "judgement":
             if key == "1":

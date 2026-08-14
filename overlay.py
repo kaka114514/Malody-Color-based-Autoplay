@@ -28,11 +28,13 @@ SWP_NOMOVE = 0x0002
 SWP_NOACTIVATE = 0x0010
 SWP_SHOWWINDOW = 0x0040
 WM_NCHITTEST = 0x0084
+WM_LBUTTONDOWN = 0x0201
 WM_ERASEBKGND = 0x0014
 WM_PAINT = 0x000F
 WM_CLOSE = 0x0010
 WM_DESTROY = 0x0002
 HTTRANSPARENT = -1
+HTCLIENT = 1
 LWA_COLORKEY = 0x0001
 PS_SOLID = 0
 TRANSPARENT_KEY_BGR = 0x00030201  # RGB(1,2,3) 作为透明色
@@ -120,6 +122,8 @@ user32.EndPaint.argtypes = [HWND_P, ctypes.POINTER(PAINTSTRUCT)]
 user32.EndPaint.restype = wintypes.BOOL
 user32.PostMessageW.argtypes = [HWND_P, ctypes.c_uint, wintypes.WPARAM, wintypes.LPARAM]
 user32.PostMessageW.restype = wintypes.BOOL
+user32.ClientToScreen.argtypes = [HWND_P, ctypes.POINTER(wintypes.POINT)]
+user32.ClientToScreen.restype = wintypes.BOOL
 user32.DestroyWindow.argtypes = [HWND_P]
 user32.DestroyWindow.restype = wintypes.BOOL
 user32.GetMessageW.argtypes = [ctypes.POINTER(MSG), HWND_P, ctypes.c_uint, ctypes.c_uint]
@@ -174,6 +178,9 @@ class Overlay:
         self._rel_y = 0.5
         self._rel_xs: List[float] = []
         self._selected = -1
+        self._frame_color = YELLOW
+        self._click_block = False
+        self._click_callback = None
         self._create_window()
 
     @property
@@ -280,6 +287,21 @@ class Overlay:
             self._selected = -1
         self._redraw()
 
+    def set_frame_color(self, color: Tuple[int, int, int]) -> None:
+        with self._lock:
+            self._frame_color = tuple(color)
+        self._redraw()
+
+    def set_click_block(self, block: bool) -> None:
+        """True：拦截点击（采集模式）；False：点击穿透。"""
+        with self._lock:
+            self._click_block = bool(block)
+
+    def set_click_callback(self, callback) -> None:
+        """点击被拦截时回调 (screen_x, screen_y)。"""
+        with self._lock:
+            self._click_callback = callback
+
     def show(self) -> None:
         if self._hwnd:
             user32.ShowWindow(self._hwnd, 5)  # SW_SHOW
@@ -291,6 +313,23 @@ class Overlay:
     def _redraw(self) -> None:
         if self._hwnd:
             user32.InvalidateRect(self._hwnd, None, True)
+
+    def _hit_result(self) -> int:
+        with self._lock:
+            return HTCLIENT if self._click_block else HTTRANSPARENT
+
+    def _handle_click(self, hwnd, l_param) -> None:
+        x = l_param & 0xFFFF
+        y = (l_param >> 16) & 0xFFFF
+        pt = ctypes.wintypes.POINT(x, y)
+        user32.ClientToScreen(hwnd, ctypes.byref(pt))
+        with self._lock:
+            callback = self._click_callback
+        if callback is not None:
+            try:
+                callback(int(pt.x), int(pt.y))
+            except Exception:
+                pass
 
     # ---------- GDI 绘制 ----------
     def _paint(self, hwnd) -> None:
@@ -313,8 +352,8 @@ class Overlay:
             user32.FillRect(hdc, ctypes.byref(RECT(0, 0, width, height)), bg_brush)
             gdi32.DeleteObject(bg_brush)
 
-            # 黄框（10px）
-            pen = gdi32.CreatePen(PS_SOLID, FRAME_WIDTH, _rgb(YELLOW))
+            # 边框（8px，黄或蓝）
+            pen = gdi32.CreatePen(PS_SOLID, FRAME_WIDTH, _rgb(self._frame_color))
             old = gdi32.SelectObject(hdc, pen)
             half = FRAME_WIDTH // 2
             self._line(hdc, 0, half, width, half)
@@ -374,7 +413,15 @@ class Overlay:
 
 def _wndproc(hwnd, msg, w_param, l_param):
     if msg == WM_NCHITTEST:
+        ov = _get_overlay(hwnd)
+        if ov is not None:
+            return ov._hit_result()
         return HTTRANSPARENT
+    if msg == WM_LBUTTONDOWN:
+        ov = _get_overlay(hwnd)
+        if ov is not None:
+            ov._handle_click(hwnd, l_param)
+        return 0
     if msg == WM_ERASEBKGND:
         return 1
     if msg == WM_PAINT:

@@ -5,7 +5,7 @@ import win32gui
 import win32con
 
 from capture import grab_rect
-from overlay import Overlay
+from overlay import BLUE, YELLOW, Overlay
 
 
 user32 = ctypes.windll.user32
@@ -85,4 +85,56 @@ def test_overlay_clear_columns():
     ov.set_columns([0.25, 0.5, 0.75], selected=0)
     ov.clear_columns()
     time.sleep(0.1)
+    ov.destroy()
+
+
+def test_overlay_blue_block_mode():
+    """蓝框采集模式：边框变蓝、命中测试返回 HTCLIENT（拦截点击）。"""
+    ov = _make_overlay()
+    ov.set_frame_color(BLUE)
+    ov.set_click_block(True)
+    time.sleep(0.1)
+    rect = win32gui.GetWindowRect(ov.hwnd)
+    cx, cy = (rect[0] + rect[2]) // 2, (rect[1] + rect[3]) // 2
+    lp = (cy << 16) | (cx & 0xFFFF)
+    assert user32.SendMessageW(ov.hwnd, WM_NCHITTEST, 0, lp) == 1  # HTCLIENT
+    hdc = user32.GetDC(ov.hwnd)
+    try:
+        col = gdi32.GetPixel(hdc, 250, 3) & 0xFFFFFF
+    finally:
+        user32.ReleaseDC(ov.hwnd, hdc)
+    assert col == 0x00F6823B, f"边框应为蓝色，实际 0x{col:06X}"  # BGR of (59,130,246)
+    ov.destroy()
+
+
+def test_overlay_frame_color_toggle_back():
+    """切回黄框后边框恢复黄色。"""
+    ov = _make_overlay()
+    ov.set_frame_color(BLUE)
+    time.sleep(0.1)
+    ov.set_frame_color(YELLOW)
+    time.sleep(0.1)
+    hdc = user32.GetDC(ov.hwnd)
+    try:
+        col = gdi32.GetPixel(hdc, 250, 3) & 0xFFFFFF
+    finally:
+        user32.ReleaseDC(ov.hwnd, hdc)
+    assert col == 0x00D8FF, f"边框应为黄色，实际 0x{col:06X}"
+    ov.destroy()
+
+
+def test_overlay_click_callback():
+    """拦截模式下点击触发回调，返回屏幕坐标。"""
+    ov = _make_overlay()
+    got = []
+    ov.set_click_block(True)
+    ov.set_click_callback(lambda x, y: got.append((x, y)))
+    rect = win32gui.GetWindowRect(ov.hwnd)
+    # 发送 WM_LBUTTONDOWN（客户区坐标 250,200）
+    user32.SendMessageW(ov.hwnd, 0x0201, 1, (200 << 16) | 250)
+    time.sleep(0.1)
+    assert got, "点击回调未触发"
+    sx, sy = got[0]
+    assert abs(sx - (rect[0] + 250)) <= 1
+    assert abs(sy - (rect[1] + 200)) <= 1
     ov.destroy()
