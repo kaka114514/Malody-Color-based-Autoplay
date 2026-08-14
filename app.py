@@ -32,6 +32,9 @@ class App:
         self.root.resizable(True, True)
 
         self.cfg = load_config(CONFIG_PATH)
+        size = self.cfg.get("window_size", [0, 0])
+        if isinstance(size, (list, tuple)) and len(size) == 2 and size[0] > 0 and size[1] > 0:
+            self.root.geometry(f"{int(size[0])}x{int(size[1])}")
         self.rel_y = float(self.cfg["judgement_line_y"])
         self.column_xs: List[float] = [c["x"] for c in self.cfg["columns"]]
         self.keys: List[str] = [c["key"] for c in self.cfg["columns"]]
@@ -172,7 +175,14 @@ class App:
             self._applying = False
 
     def _on_ui_click(self, _event) -> None:
-        """点击程序窗口任意按钮/空白处，取消吸管光标状态。"""
+        """点击按钮/空白处取消输入状态；点击输入框不打断输入。"""
+        widget = _event.widget
+        if isinstance(widget, tk.Entry):
+            return
+        self._cancel_eyedrop()
+        self.root.focus_set()  # 输入框失焦，取消输入状态
+
+    def _cancel_eyedrop(self) -> None:
         if self.eyedrop_active:
             self.eyedrop_active = False
             restore_system_cursor()
@@ -467,6 +477,7 @@ class App:
             "key_colors": [list(c) for c in self.matcher.key_colors],
             "delay_ms": self.delay_ms,
             "tolerance": self.matcher.tolerance,
+            "window_size": [self.root.winfo_width(), self.root.winfo_height()],
         }
         save_config(CONFIG_PATH, cfg)
         self.status("设置已保存到 config.json")
@@ -482,6 +493,11 @@ class App:
             pass
 
     def _handle_hotkey(self, key: str) -> None:
+        if key == "ctrl":
+            # 按 Ctrl 取消吸管与输入状态
+            self._cancel_eyedrop()
+            self.root.focus_set()
+            return
         if key in ("4", "5"):
             # 延迟调整在任何模式下都生效
             self.nudge_delay(-5 if key == "4" else 5)

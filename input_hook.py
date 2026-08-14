@@ -12,6 +12,7 @@ WM_KEYDOWN = 0x0100
 WM_SYSKEYDOWN = 0x0104
 WM_QUIT = 0x0012
 VK_NUMPAD_BASE = 0x60
+VK_CONTROL = 0x11
 
 
 LowLevelKeyboardProc = ctypes.WINFUNCTYPE(
@@ -35,6 +36,8 @@ class KBDLLHOOKSTRUCT(ctypes.Structure):
 
 def map_vk_to_hotkey(vk: int) -> Optional[str]:
     """数字键 1~8（含小键盘）→ "1".."8"；其它返回 None。"""
+    if vk == VK_CONTROL:
+        return "ctrl"
     if 0x31 <= vk <= 0x38:
         return chr(vk)
     if VK_NUMPAD_BASE + 1 <= vk <= VK_NUMPAD_BASE + 8:

@@ -30,6 +30,7 @@ def test_round_trip(tmp_path: Path):
         "key_colors": [[240, 80, 90], [255, 200, 60]],
         "delay_ms": -5,
         "tolerance": 40,
+        "window_size": [0, 0],
     }
     save_config(path, cfg)
     loaded = load_config(path)
@@ -56,3 +57,15 @@ def test_normalize_clamps_bad_types(tmp_path: Path):
     assert cfg["delay_ms"] == DEFAULT_CONFIG["delay_ms"]
     assert cfg["tolerance"] == DEFAULT_CONFIG["tolerance"]
     assert 0.0 <= cfg["judgement_line_y"] <= 1.0
+
+
+def test_window_size_round_trip(tmp_path: Path):
+    path = tmp_path / "size.json"
+    cfg = {"window_size": [820, 640]}
+    save_config(path, cfg)
+    assert load_config(path)["window_size"] == [820, 640]
+
+
+def test_window_size_invalid_resets(tmp_path: Path):
+    cfg = normalize_config({"window_size": [0, -5]})
+    assert cfg["window_size"] == [0, 0]

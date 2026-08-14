@@ -19,6 +19,7 @@ DEFAULT_CONFIG: dict = {
     "key_colors": [],                  # [ [r,g,b], ... ]
     "delay_ms": 0,                     # 允许负数，运行时按 max(0, v) 处理
     "tolerance": 40,                   # 颜色欧氏距离容差 0~255
+    "window_size": [0, 0],             # 主窗口宽高；[0,0] 表示未设置
 }
 
 
@@ -82,6 +83,16 @@ def normalize_config(raw: dict) -> dict:
                 if c is not None:
                     colors.append(c)
         cfg[field] = colors
+
+    size = cfg.get("window_size")
+    if (
+        isinstance(size, (list, tuple))
+        and len(size) == 2
+        and all(isinstance(v, (int, float)) and v > 0 for v in size)
+    ):
+        cfg["window_size"] = [int(size[0]), int(size[1])]
+    else:
+        cfg["window_size"] = [0, 0]
 
     return cfg
 
