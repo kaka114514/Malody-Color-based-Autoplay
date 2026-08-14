@@ -179,6 +179,7 @@ class App:
         tk.Label(f, textvariable=self.status_var, anchor="w").pack(fill="x", **pad)
         tk.Label(f, text="热键：4 延迟-5ms | 5 延迟+5ms", anchor="w", fg="#666666").pack(fill="x", **pad)
         tk.Label(f, text="6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换", anchor="w", fg="#666666").pack(fill="x", **pad)
+        tk.Label(f, text="9 运行 | 0 暂停", anchor="w", fg="#666666").pack(fill="x", **pad)
 
     def status(self, msg: str) -> None:
         """线程安全的状态栏更新（经消息队列转发到主线程）。"""
@@ -676,6 +677,12 @@ class App:
                 self.status("蓝框采集模式：点击游戏抓取坐标/颜色（再按8返回）")
             else:
                 self.status("黄框正常模式：点击穿透")
+            return
+        if key == "9":
+            self.on_run()
+            return
+        if key == "0":
+            self.on_pause()
             return
         if self.mode == "judgement":
             if key == "1":

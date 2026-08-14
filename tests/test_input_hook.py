@@ -8,6 +8,8 @@ def test_map_vk_to_hotkey():
     assert map_vk_to_hotkey(0x36) == "6"
     assert map_vk_to_hotkey(0x37) == "7"
     assert map_vk_to_hotkey(0x38) == "8"
+    assert map_vk_to_hotkey(0x39) == "9"
+    assert map_vk_to_hotkey(0x30) == "0"
     assert map_vk_to_hotkey(0x41) is None  # 'A'
     assert map_vk_to_hotkey(0) is None
 
