@@ -197,6 +197,7 @@ class AutoplayEngine:
     def _loop(self) -> None:
         frames = 0
         last_log = time.perf_counter()
+        last_states: Optional[List[str]] = None
         while self._running:
             if wu.is_minimized(self._hwnd) or not wu.is_visible(self._hwnd):
                 self._running = False
@@ -236,13 +237,20 @@ class AutoplayEngine:
                 # "unknown"：保持上一帧状态，避免闪烁
             self._scheduler.tick(now_ms)
 
+            # 检测点分类变化时立即上报（状态栏即时反馈）
+            states = [self._matcher.classify(c) for c in colors]
+            if states != last_states:
+                last_states = list(states)
+                detail = " ".join(
+                    f"{self._keys[i]}:{cls}{tuple(color)}"
+                    for i, (cls, color) in enumerate(zip(states, colors))
+                )
+                self._on_log(f"状态: {detail}")
+
             frames += 1
             now_real = time.perf_counter()
             if now_real - last_log >= 1.0:
                 fps = frames / (now_real - last_log)
-                states = []
-                for i, color in enumerate(colors):
-                    states.append(f"{self._keys[i]}:{self._matcher.classify(color)}{tuple(color)}")
-                self._on_log(f"检测频率: {fps:.0f} 次/秒 | 状态: {' '.join(states)}")
+                self._on_log(f"检测频率: {fps:.0f} 次/秒")
                 frames = 0
                 last_log = now_real
