@@ -2,9 +2,10 @@
 
 import logging
 import queue
+import shutil
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 from typing import List, Optional, Tuple
 
 import win32gui
@@ -19,9 +20,31 @@ from overlay import BLUE, YELLOW, Overlay
 
 
 BASE_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = BASE_DIR / "config.json"
+CONFIG_DIR = BASE_DIR / "configs"
+CONFIG_PATH = CONFIG_DIR / "config.json"
+LAST_CONFIG_FILE = CONFIG_DIR / ".last"
 
 log = logging.getLogger("autoplay_debug")
+
+
+def resolve_config_path(config_dir: Path = CONFIG_DIR) -> Path:
+    """决定启动时加载的配置路径：优先 .last 记录的最近保存文件，其次默认 config.json。"""
+    config_dir = Path(config_dir)
+    config_dir.mkdir(parents=True, exist_ok=True)
+    # 旧版本兼容：根目录 config.json 迁移到配置文件夹
+    default_path = config_dir / "config.json"
+    old_path = config_dir.parent / "config.json"
+    if not default_path.exists() and old_path.exists():
+        shutil.copy2(old_path, default_path)
+    last_file = config_dir / ".last"
+    if last_file.exists():
+        try:
+            last = Path(last_file.read_text(encoding="utf-8").strip())
+            if last.is_file():
+                return last
+        except OSError:
+            pass
+    return default_path
 
 
 class App:
@@ -30,7 +53,8 @@ class App:
         self.root.title("Malody 颜色自动游玩")
         self.root.resizable(True, True)
 
-        self.cfg = load_config(CONFIG_PATH)
+        self._config_path = resolve_config_path()
+        self.cfg = load_config(self._config_path)
         size = self.cfg.get("window_size", [0, 0])
         if isinstance(size, (list, tuple)) and len(size) == 2 and size[0] > 0 and size[1] > 0:
             geometry = f"{int(size[0])}x{int(size[1])}"
@@ -148,7 +172,7 @@ class App:
         self.run_btn.pack(side="left", padx=8)
         self.pause_btn = tk.Button(row, text="暂停", command=self.on_pause, width=8, state="disabled")
         self.pause_btn.pack(side="left", padx=8)
-        tk.Button(row, text="保存", command=self.on_save, width=8).pack(side="left", padx=8)
+        tk.Button(row, text="配置", command=self.on_save, width=8).pack(side="left", padx=8)
         tk.Button(row, text="恢复", command=self.on_restore, width=8).pack(side="left", padx=8)
 
         self.status_var = tk.StringVar(value="")
@@ -482,8 +506,7 @@ class App:
         self.run_btn.config(state="normal")
         self.pause_btn.config(state="disabled")
 
-    def on_save(self) -> None:
-        self._cancel_eyedrop()  # 保存前恢复系统光标
+    def _build_cfg(self) -> dict:
         sorted_cols = self._sorted_columns()
         if sorted_cols:
             columns = [{"x": x, "key": k} for x, k in sorted_cols]
@@ -505,7 +528,7 @@ class App:
             judgement_px = int(round(self.rel_y * h))
         else:
             judgement_px = int(round(self.rel_y * 1000))
-        cfg = {
+        return {
             "judgement_line_y": self.rel_y,
             "judgement_line_px": judgement_px,
             "column_count": col_count,
@@ -519,12 +542,50 @@ class App:
             "window_size": [self.root.winfo_width(), self.root.winfo_height()],
             "window_position": [self.root.winfo_x(), self.root.winfo_y()],
         }
-        save_config(CONFIG_PATH, cfg)
-        self.status("设置已保存到 config.json")
+
+    def _remember_config(self, path: Path) -> None:
+        """记录最近使用的配置文件。"""
+        self._config_path = Path(path)
+        try:
+            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            LAST_CONFIG_FILE.write_text(str(self._config_path), encoding="utf-8")
+        except OSError:
+            pass
+
+    def on_save(self) -> None:
+        """弹出另存为窗口，将当前设置保存为配置文件。"""
+        self._cancel_eyedrop()  # 保存前取消吸管状态
+        initial_file = self._config_path.name if self._config_path else "config.json"
+        path = filedialog.asksaveasfilename(
+            title="保存配置",
+            initialdir=str(CONFIG_DIR),
+            initialfile=initial_file,
+            defaultextension=".json",
+            filetypes=[("JSON 配置", "*.json"), ("所有文件", "*.*")],
+        )
+        if not path:
+            self.status("已取消保存")
+            return
+        path = Path(path)
+        save_config(path, self._build_cfg())
+        self._remember_config(path)
+        self.status(f"配置已保存到 {path.name}")
 
     def on_restore(self) -> None:
-        """读取配置文件并应用全部设置。"""
-        cfg = load_config(CONFIG_PATH)
+        """弹出打开窗口，选择配置文件并应用全部设置。"""
+        path = filedialog.askopenfilename(
+            title="选择配置文件",
+            initialdir=str(CONFIG_DIR),
+            filetypes=[("JSON 配置", "*.json"), ("所有文件", "*.*")],
+        )
+        if not path:
+            self.status("已取消恢复")
+            return
+        self._apply_cfg(load_config(Path(path)))
+        self._remember_config(Path(path))
+
+    def _apply_cfg(self, cfg: dict) -> None:
+        """应用配置到程序状态与界面。"""
         self.cfg = cfg
         self.rel_y = float(cfg["judgement_line_y"])
         self.judgement_px = int(cfg.get("judgement_line_px", 0))
@@ -712,7 +773,9 @@ class App:
         self._hook.stop()
         self.overlay.destroy()
         try:
-            self.on_save()  # 关闭时自动保存当前设置
+            # 关闭时自动保存到当前配置文件，并记录为最近使用
+            save_config(self._config_path, self._build_cfg())
+            self._remember_config(self._config_path)
         except Exception:
             pass
         self.root.destroy()
