@@ -7,6 +7,7 @@
 
 import ctypes
 import ctypes.wintypes as wintypes
+import logging
 import threading
 from typing import List, Optional, Tuple
 
@@ -39,6 +40,8 @@ LWA_COLORKEY = 0x0001
 PS_SOLID = 0
 TRANSPARENT_KEY_BGR = 0x00030201  # RGB(1,2,3) 作为透明色
 
+log = logging.getLogger("autoplay_debug")
+
 YELLOW = (255, 216, 0)
 RED = (255, 59, 48)
 BLUE = (59, 130, 246)
@@ -47,7 +50,7 @@ FRAME_WIDTH = 8
 LINE_WIDTH = 3
 NOTCH = 6
 RING_RADIUS = 5
-RING_INNER = 2
+RING_WIDTH = 2
 
 
 class RECT(ctypes.Structure):
@@ -328,77 +331,72 @@ class Overlay:
 
     # ---------- GDI 绘制 ----------
     def _paint(self, hwnd) -> None:
-        with self._lock:
-            rect = self._rect
-            rel_y = self._rel_y
-            rel_xs = list(self._rel_xs)
-            selected = self._selected
-        if rect is None:
-            return
-        left, top, right, bottom = rect
-        width = max(1, right - left)
-        height = max(1, bottom - top)
-
-        ps = PAINTSTRUCT()
-        hdc = user32.BeginPaint(hwnd, ctypes.byref(ps))
         try:
-            # 透明背景（color key 填充）
-            bg_brush = gdi32.CreateSolidBrush(TRANSPARENT_KEY_BGR)
-            user32.FillRect(hdc, ctypes.byref(RECT(0, 0, width, height)), bg_brush)
-            gdi32.DeleteObject(bg_brush)
+            with self._lock:
+                rect = self._rect
+                rel_y = self._rel_y
+                rel_xs = list(self._rel_xs)
+                selected = self._selected
+            if rect is None:
+                return
+            left, top, right, bottom = rect
+            width = max(1, right - left)
+            height = max(1, bottom - top)
 
-            # 边框（8px，黄或蓝）
-            pen = gdi32.CreatePen(PS_SOLID, FRAME_WIDTH, _rgb(self._frame_color))
-            old = gdi32.SelectObject(hdc, pen)
-            half = FRAME_WIDTH // 2
-            self._line(hdc, 0, half, width, half)
-            self._line(hdc, 0, height - half, width, height - half)
-            self._line(hdc, half, 0, half, height)
-            self._line(hdc, width - half, 0, width - half, height)
-            gdi32.SelectObject(hdc, old)
-            gdi32.DeleteObject(pen)
+            ps = PAINTSTRUCT()
+            hdc = user32.BeginPaint(hwnd, ctypes.byref(ps))
+            try:
+                # 透明背景（color key 填充）
+                bg_brush = gdi32.CreateSolidBrush(TRANSPARENT_KEY_BGR)
+                user32.FillRect(hdc, ctypes.byref(RECT(0, 0, width, height)), bg_brush)
+                gdi32.DeleteObject(bg_brush)
 
-            # 红线（3px，蓝点处断开）
-            y = min(int(rel_y * height), max(0, height - 1))
-            pen = gdi32.CreatePen(PS_SOLID, LINE_WIDTH, _rgb(RED))
-            old = gdi32.SelectObject(hdc, pen)
-            xs = sorted(rel_x * width for rel_x in rel_xs)
-            prev = 0
-            for cx in xs:
-                a = max(prev, cx - NOTCH)
-                b = cx + NOTCH
-                if a > prev:
-                    self._line(hdc, prev, y, a, y)
-                prev = b
-            if prev < width:
-                self._line(hdc, prev, y, width, y)
-            gdi32.SelectObject(hdc, old)
-            gdi32.DeleteObject(pen)
+                # 边框（8px，黄或蓝）
+                pen = gdi32.CreatePen(PS_SOLID, FRAME_WIDTH, _rgb(self._frame_color))
+                old = gdi32.SelectObject(hdc, pen)
+                half = FRAME_WIDTH // 2
+                self._line(hdc, 0, half, width, half)
+                self._line(hdc, 0, height - half, width, height - half)
+                self._line(hdc, half, 0, half, height)
+                self._line(hdc, width - half, 0, width - half, height)
+                gdi32.SelectObject(hdc, old)
+                gdi32.DeleteObject(pen)
 
-            # 蓝点（空心圆环）
-            for i, rel_x in enumerate(rel_xs):
-                cx = int(rel_x * width)
-                color = SELECTED_BLUE if i == selected else BLUE
-                brush = gdi32.CreateSolidBrush(_rgb(color))
-                old_brush = gdi32.SelectObject(hdc, brush)
-                old_pen = gdi32.SelectObject(hdc, gdi32.GetStockObject(8))  # NULL_PEN
-                gdi32.Ellipse(
-                    hdc, cx - RING_RADIUS, y - RING_RADIUS,
-                    cx + RING_RADIUS, y + RING_RADIUS,
-                )
-                # 内圆用透明色挖空，形成圆环，中心供检测取色
-                hole_brush = gdi32.CreateSolidBrush(TRANSPARENT_KEY_BGR)
-                gdi32.SelectObject(hdc, hole_brush)
-                gdi32.Ellipse(
-                    hdc, cx - RING_INNER, y - RING_INNER,
-                    cx + RING_INNER, y + RING_INNER,
-                )
-                gdi32.DeleteObject(hole_brush)
-                gdi32.SelectObject(hdc, old_pen)
-                gdi32.SelectObject(hdc, old_brush)
-                gdi32.DeleteObject(brush)
-        finally:
-            user32.EndPaint(hwnd, ctypes.byref(ps))
+                # 红线（3px，蓝点处断开）
+                y = min(int(rel_y * height), max(0, height - 1))
+                pen = gdi32.CreatePen(PS_SOLID, LINE_WIDTH, _rgb(RED))
+                old = gdi32.SelectObject(hdc, pen)
+                xs = sorted(rel_x * width for rel_x in rel_xs)
+                prev = 0
+                for cx in xs:
+                    a = max(prev, cx - NOTCH)
+                    b = cx + NOTCH
+                    if a > prev:
+                        self._line(hdc, prev, y, a, y)
+                    prev = b
+                if prev < width:
+                    self._line(hdc, prev, y, width, y)
+                gdi32.SelectObject(hdc, old)
+                gdi32.DeleteObject(pen)
+
+                # 蓝点（空心圆环：蓝色画笔 + 不填充，中心天然透明供检测取色）
+                for i, rel_x in enumerate(rel_xs):
+                    cx = int(rel_x * width)
+                    color = SELECTED_BLUE if i == selected else BLUE
+                    pen = gdi32.CreatePen(PS_SOLID, RING_WIDTH, _rgb(color))
+                    old_pen = gdi32.SelectObject(hdc, pen)
+                    old_brush = gdi32.SelectObject(hdc, gdi32.GetStockObject(5))  # NULL_BRUSH
+                    gdi32.Ellipse(
+                        hdc, cx - RING_RADIUS, y - RING_RADIUS,
+                        cx + RING_RADIUS, y + RING_RADIUS,
+                    )
+                    gdi32.SelectObject(hdc, old_brush)
+                    gdi32.SelectObject(hdc, old_pen)
+                    gdi32.DeleteObject(pen)
+            finally:
+                user32.EndPaint(hwnd, ctypes.byref(ps))
+        except Exception:
+            log.exception("overlay paint failed")
 
     @staticmethod
     def _line(hdc, x1, y1, x2, y2) -> None:

@@ -138,3 +138,20 @@ def test_overlay_click_callback():
     assert abs(sx - (rect[0] + 250)) <= 1
     assert abs(sy - (rect[1] + 200)) <= 1
     ov.destroy()
+
+
+def test_overlay_blue_dot_center_transparent():
+    """蓝点为空心圆：外环是蓝色、中心透明（检测点取游戏画面）。"""
+    ov = _make_overlay()
+    ov.set_columns([0.5], selected=-1)
+    time.sleep(0.1)
+    hdc = user32.GetDC(ov.hwnd)
+    try:
+        # 蓝点中心：x=0.5*500=250, y=0.5*400=200
+        col = gdi32.GetPixel(hdc, 250, 200) & 0xFFFFFF
+        ring = gdi32.GetPixel(hdc, 245, 200) & 0xFFFFFF  # 外环 x=250-5
+    finally:
+        user32.ReleaseDC(ov.hwnd, hdc)
+    assert ring == 0x00F6823B, f"蓝点外环应为蓝色: 0x{ring:06X}"
+    assert col == 0x00030201, f"蓝点中心应为透明色(1,2,3)，实际 0x{col:06X}"
+    ov.destroy()
