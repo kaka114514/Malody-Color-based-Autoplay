@@ -59,6 +59,10 @@ class App:
         self.overlay.set_click_callback(self._on_overlay_click)
 
         self._build_ui()
+        self.root.update_idletasks()
+        # 判定线高度按当前窗口实际高度换算像素显示，与输入值一致
+        win_h = max(1, self.root.winfo_height())
+        self.judgement_var.set(str(int(self.rel_y * win_h)))
         self._restore_matcher()
         self._refresh_swatches()
 
@@ -628,4 +632,8 @@ class App:
         self._hook.stop()
         self.overlay.destroy()
         restore_system_cursor()
+        try:
+            self.on_save()  # 关闭时自动保存当前设置
+        except Exception:
+            pass
         self.root.destroy()
