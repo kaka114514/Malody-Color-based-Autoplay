@@ -493,6 +493,9 @@ class App:
             pass
 
     def _handle_hotkey(self, key: str) -> None:
+        focused = self.root.focus_get()
+        if isinstance(focused, tk.Entry) and key != "ctrl":
+            return  # 输入状态：不触发热键，仅作为输入字符
         if key == "ctrl":
             # 按 Ctrl 取消吸管与输入状态
             self._cancel_eyedrop()
