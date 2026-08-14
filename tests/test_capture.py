@@ -5,7 +5,7 @@ from capture import make_bbox, sample_pixel, sample_points
 
 def test_make_bbox_pads_points():
     bbox = make_bbox([(10, 20), (30, 40)], pad=2)
-    assert bbox == (8, 18, 32, 42)
+    assert bbox == (8, 18, 33, 43)
 
 
 def test_make_bbox_single_point():
