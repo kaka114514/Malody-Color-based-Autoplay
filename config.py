@@ -22,6 +22,7 @@ DEFAULT_CONFIG: dict = {
     "tolerance": 40,                   # 颜色欧氏距离容差 0~255
     "key_color_count": 1,              # 按键颜色数量
     "window_size": [0, 0],             # 主窗口宽高；[0,0] 表示未设置
+    "window_position": [-1, -1],       # 主窗口位置；[-1,-1] 表示未设置
 }
 
 
@@ -105,6 +106,16 @@ def normalize_config(raw: dict) -> dict:
         cfg["window_size"] = [int(size[0]), int(size[1])]
     else:
         cfg["window_size"] = [0, 0]
+
+    pos = cfg.get("window_position")
+    if (
+        isinstance(pos, (list, tuple))
+        and len(pos) == 2
+        and all(isinstance(v, (int, float)) for v in pos)
+    ):
+        cfg["window_position"] = [int(pos[0]), int(pos[1])]
+    else:
+        cfg["window_position"] = [-1, -1]
 
     return cfg
 

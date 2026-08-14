@@ -33,6 +33,7 @@ def test_round_trip(tmp_path: Path):
         "judgement_line_px": 456,
         "key_color_count": 2,
         "window_size": [0, 0],
+        "window_position": [-1, -1],
     }
     save_config(path, cfg)
     loaded = load_config(path)

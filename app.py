@@ -34,7 +34,11 @@ class App:
         self.cfg = load_config(CONFIG_PATH)
         size = self.cfg.get("window_size", [0, 0])
         if isinstance(size, (list, tuple)) and len(size) == 2 and size[0] > 0 and size[1] > 0:
-            self.root.geometry(f"{int(size[0])}x{int(size[1])}")
+            geometry = f"{int(size[0])}x{int(size[1])}"
+            pos = self.cfg.get("window_position", [-1, -1])
+            if isinstance(pos, (list, tuple)) and len(pos) == 2 and pos[0] >= 0 and pos[1] >= 0:
+                geometry += f"+{int(pos[0])}+{int(pos[1])}"
+            self.root.geometry(geometry)
         self.rel_y = float(self.cfg["judgement_line_y"])
         self.judgement_px = int(self.cfg.get("judgement_line_px", 0))
         self.column_xs: List[float] = [c["x"] for c in self.cfg["columns"]]
@@ -150,8 +154,8 @@ class App:
 
         self.status_var = tk.StringVar(value="")
         tk.Label(f, textvariable=self.status_var, anchor="w").pack(fill="x", **pad)
-        hotkey_hint = "热键：4 延迟-5ms | 5 延迟+5ms | 6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换"
-        tk.Label(f, text=hotkey_hint, anchor="w", fg="#666666").pack(fill="x", **pad)
+        tk.Label(f, text="热键：4 延迟-5ms | 5 延迟+5ms", anchor="w", fg="#666666").pack(fill="x", **pad)
+        tk.Label(f, text="6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换", anchor="w", fg="#666666").pack(fill="x", **pad)
 
     def status(self, msg: str) -> None:
         """线程安全的状态栏更新（经消息队列转发到主线程）。"""
@@ -517,6 +521,7 @@ class App:
             "tolerance": self.matcher.tolerance,
             "key_color_count": key_color_count,
             "window_size": [self.root.winfo_width(), self.root.winfo_height()],
+            "window_position": [self.root.winfo_x(), self.root.winfo_y()],
         }
         save_config(CONFIG_PATH, cfg)
         self.status("设置已保存到 config.json")
@@ -550,7 +555,11 @@ class App:
         # 窗口大小
         size = cfg.get("window_size", [0, 0])
         if isinstance(size, (list, tuple)) and len(size) == 2 and size[0] > 0 and size[1] > 0:
-            self.root.geometry(f"{int(size[0])}x{int(size[1])}")
+            geometry = f"{int(size[0])}x{int(size[1])}"
+            pos = cfg.get("window_position", [-1, -1])
+            if isinstance(pos, (list, tuple)) and len(pos) == 2 and pos[0] >= 0 and pos[1] >= 0:
+                geometry += f"+{int(pos[0])}+{int(pos[1])}"
+            self.root.geometry(geometry)
 
         # 判定线按像素换算（若已选游戏窗口）
         if self.game_rect and self.judgement_px > 0:
