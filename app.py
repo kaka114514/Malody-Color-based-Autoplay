@@ -1,0 +1,518 @@
+"""主控制界面：布局、模式状态机、线程协调。"""
+
+import queue
+import tkinter as tk
+from pathlib import Path
+from tkinter import messagebox
+from typing import List, Optional, Tuple
+
+import window_utils as wu
+from autoplay import AutoplayEngine
+from capture import grab_rect, sample_pixel
+from color_matcher import ColorMatcher
+from config import load_config, save_config
+from input_hook import GlobalKeyHook, MouseReader, restore_system_cursor, set_global_cursor
+from overlay import Overlay
+
+
+BASE_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = BASE_DIR / "config.json"
+CURSOR_PATH = BASE_DIR / "cursor.cur"
+
+
+class App:
+    def __init__(self, root: tk.Tk) -> None:
+        self.root = root
+        self.root.title("Malody 颜色自动游玩")
+        self.root.resizable(False, False)
+
+        self.cfg = load_config(CONFIG_PATH)
+        self.rel_y = float(self.cfg["judgement_line_y"])
+        self.column_xs: List[float] = [c["x"] for c in self.cfg["columns"]]
+        self.keys: List[str] = [c["key"] for c in self.cfg["columns"]]
+        self.delay_ms = int(self.cfg["delay_ms"])
+        self.matcher = ColorMatcher(tolerance=int(self.cfg["tolerance"]))
+
+        self.game_hwnd: Optional[int] = None
+        self.game_rect: Optional[Tuple[int, int, int, int]] = None
+        self.mode = "idle"
+        self.eyedrop_active = False
+        self.selected_col = -1
+        self.engine: Optional[AutoplayEngine] = None
+        self._last_left = False
+        self._closing = False
+        self._msg_queue: queue.Queue = queue.Queue(maxsize=100)
+
+        self.overlay = Overlay(root)
+        self.overlay.hide()
+
+        self._build_ui()
+        self._restore_matcher()
+        self._refresh_swatches()
+
+        self._hook = GlobalKeyHook(self.on_hotkey)
+        self._hook.start()
+
+        self.root.after(100, self._tick_tracking)
+        self.root.after(30, self._tick_mouse)
+        self.root.after(50, self._tick_messages)
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.status("就绪：先选择游戏窗口")
+
+    # ---------- 界面构建 ----------
+    def _build_ui(self) -> None:
+        pad = dict(padx=8, pady=4)
+        f = tk.Frame(self.root)
+        f.pack(fill="x")
+
+        tk.Button(f, text="选择游戏窗口（点击后点游戏窗口）", command=self.on_select_window).pack(fill="x", **pad)
+
+        row = tk.Frame(f)
+        row.pack(fill="x", **pad)
+        tk.Label(row, text="判定线高度").pack(side="left")
+        self.judgement_var = tk.StringVar(value=str(int(self.rel_y * 1000)))
+        ent = tk.Entry(row, textvariable=self.judgement_var, width=8)
+        ent.pack(side="left", padx=4)
+        ent.bind("<Return>", lambda _e: self.apply_judgement_entry())
+        tk.Button(row, text="设置(1上/2下/3结束)", command=self.on_judgement).pack(side="left", padx=4)
+
+        row = tk.Frame(f)
+        row.pack(fill="x", **pad)
+        tk.Label(row, text="列数").pack(side="left")
+        self.col_count_var = tk.StringVar(value=str(len(self.column_xs) or 4))
+        tk.Entry(row, textvariable=self.col_count_var, width=5).pack(side="left", padx=4)
+        tk.Label(row, text="按键").pack(side="left")
+        self.key_string_var = tk.StringVar(value=str(self.cfg.get("key_string", "")))
+        ent = tk.Entry(row, textvariable=self.key_string_var, width=14)
+        ent.pack(side="left", padx=4)
+        ent.bind("<Return>", lambda _e: self.apply_key_string())
+        tk.Button(row, text="设置列(左键添加/选中)", command=self.on_columns).pack(side="left", padx=4)
+
+        row = tk.Frame(f)
+        row.pack(fill="x", **pad)
+        tk.Label(row, text="背景颜色").pack(side="left")
+        tk.Button(row, text="吸色(按1激活,左键取色)", command=self.on_eyedrop_bg).pack(side="left", padx=4)
+        self.bg_swatch_frame = tk.Frame(row)
+        self.bg_swatch_frame.pack(side="left", padx=4)
+
+        row = tk.Frame(f)
+        row.pack(fill="x", **pad)
+        tk.Label(row, text="按键颜色数量").pack(side="left")
+        self.key_count_var = tk.StringVar(value="1")
+        tk.Entry(row, textvariable=self.key_count_var, width=4).pack(side="left", padx=4)
+        tk.Button(row, text="吸色(按1激活,左键取色)", command=self.on_eyedrop_key).pack(side="left", padx=4)
+        self.key_swatch_frame = tk.Frame(row)
+        self.key_swatch_frame.pack(side="left", padx=4)
+
+        row = tk.Frame(f)
+        row.pack(fill="x", **pad)
+        tk.Label(row, text="延迟(ms)").pack(side="left")
+        self.delay_var = tk.StringVar(value=str(self.delay_ms))
+        ent = tk.Entry(row, textvariable=self.delay_var, width=8)
+        ent.pack(side="left", padx=4)
+        ent.bind("<Return>", lambda _e: self.apply_delay_entry())
+        tk.Label(row, text="运行中 4=提前5ms 5=推后5ms").pack(side="left")
+
+        row = tk.Frame(f)
+        row.pack(fill="x", pady=6)
+        self.run_btn = tk.Button(row, text="运行", command=self.on_run, width=8)
+        self.run_btn.pack(side="left", padx=8)
+        self.pause_btn = tk.Button(row, text="暂停", command=self.on_pause, width=8, state="disabled")
+        self.pause_btn.pack(side="left", padx=8)
+        tk.Button(row, text="保存", command=self.on_save, width=8).pack(side="left", padx=8)
+
+        self.status_var = tk.StringVar(value="")
+        tk.Label(f, textvariable=self.status_var, anchor="w").pack(fill="x", **pad)
+
+    def status(self, msg: str) -> None:
+        """线程安全的状态栏更新（经消息队列转发到主线程）。"""
+        try:
+            self._msg_queue.put_nowait(("status", msg))
+        except queue.Full:
+            pass
+
+    def _tick_messages(self) -> None:
+        try:
+            while True:
+                kind, payload = self._msg_queue.get_nowait()
+                if kind == "status":
+                    self.status_var.set(payload)
+                elif kind == "hotkey":
+                    self._handle_hotkey(payload)
+                elif kind == "engine_stopped":
+                    self.engine = None
+                    self._reset_buttons()
+                    self.status_var.set(payload)
+        except queue.Empty:
+            pass
+        if not self._closing:
+            self.root.after(50, self._tick_messages)
+
+    # ---------- 配置恢复 ----------
+    def _restore_matcher(self) -> None:
+        for c in self.cfg.get("background_colors", []):
+            self.matcher.add_background(tuple(c))
+        for c in self.cfg.get("key_colors", []):
+            self.matcher.add_key(tuple(c))
+
+    def _refresh_swatches(self) -> None:
+        for frame in (self.bg_swatch_frame, self.key_swatch_frame):
+            for w in frame.winfo_children():
+                w.destroy()
+        for i, c in enumerate(self.matcher.background_colors):
+            tk.Button(
+                self.bg_swatch_frame, bg="#%02x%02x%02x" % c, width=4,
+                command=lambda idx=i: self._remove_bg(idx),
+            ).pack(side="left", padx=1)
+        for i, c in enumerate(self.matcher.key_colors):
+            tk.Button(
+                self.key_swatch_frame, bg="#%02x%02x%02x" % c, width=4,
+                command=lambda idx=i: self._remove_key(idx),
+            ).pack(side="left", padx=1)
+
+    def _remove_bg(self, idx: int) -> None:
+        self.matcher.remove_background(self.matcher.background_colors[idx])
+        self._refresh_swatches()
+
+    def _remove_key(self, idx: int) -> None:
+        self.matcher.remove_key(self.matcher.key_colors[idx])
+        self._refresh_swatches()
+
+    # ---------- 窗口 ----------
+    def on_select_window(self) -> None:
+        self.mode = "select_window"
+        self.status("请在游戏窗口上点击左键")
+
+    def select_game_window(self, hwnd: int) -> None:
+        self.game_hwnd = hwnd
+        self._refresh_tracking()
+        self.mode = "idle"
+        self.status("已选择游戏窗口（黄色线框）")
+
+    def _refresh_tracking(self) -> None:
+        if not self.game_hwnd:
+            return
+        if wu.is_minimized(self.game_hwnd) or not wu.is_visible(self.game_hwnd):
+            self.overlay.hide()
+            return
+        self.game_rect = wu.get_window_rect(self.game_hwnd)
+        self.overlay.set_game_rect(self.game_rect)
+        self.overlay.set_judgement_y(self.rel_y)
+        self.overlay.set_columns(self.column_xs, self.selected_col)
+        self.overlay.show()
+
+    # ---------- 判定线 ----------
+    def on_judgement(self) -> None:
+        if not self.game_hwnd:
+            messagebox.showwarning("提示", "请先选择游戏窗口")
+            return
+        self.mode = "judgement"
+        self._refresh_tracking()
+        self.status("判定线设置：1上移 2下移 左键选高度 3结束")
+
+    def apply_judgement_entry(self) -> None:
+        try:
+            y = int(self.judgement_var.get())
+        except ValueError:
+            self.status("判定线高度请输入数字")
+            return
+        self._set_judgement_px(y)
+
+    def _set_judgement_px(self, px: int) -> None:
+        if not self.game_rect:
+            return
+        h = max(1, self.game_rect[3] - self.game_rect[1])
+        self.rel_y = max(0.0, min(1.0, px / h))
+        self.judgement_var.set(str(px))
+        self.overlay.set_judgement_y(self.rel_y)
+
+    def nudge_judgement(self, delta_px: int) -> None:
+        if not self.game_rect:
+            return
+        h = max(1, self.game_rect[3] - self.game_rect[1])
+        self.rel_y = max(0.0, min(1.0, self.rel_y + delta_px / h))
+        self.judgement_var.set(str(int(self.rel_y * h)))
+        self.overlay.set_judgement_y(self.rel_y)
+
+    # ---------- 列 ----------
+    def on_columns(self) -> None:
+        if not self.game_hwnd:
+            messagebox.showwarning("提示", "请先选择游戏窗口")
+            return
+        if len(self.column_xs) == 0:
+            self.column_xs = [0.5]
+        self.mode = "columns"
+        self.selected_col = max(0, len(self.column_xs) - 1)
+        self._refresh_tracking()
+        self.status("列设置：左键添加/选中 1左移 2右移 3结束")
+
+    def apply_key_string(self) -> None:
+        self.keys = self._parse_keys()
+        if len(self.keys) != len(self.column_xs):
+            self.status(f"按键数量({len(self.keys)})与列数({len(self.column_xs)})不匹配，已忽略")
+            self.keys = []
+        else:
+            self.status("按键绑定已更新")
+
+    def _parse_keys(self) -> List[str]:
+        s = self.key_string_var.get().strip()
+        if not s:
+            return []
+        if len(s) == len(self.column_xs):
+            return list(s.upper())
+        return [part.strip() for part in s.split() if part.strip()]
+
+    def nudge_column(self, delta_px: int) -> None:
+        if self.selected_col < 0 or not self.game_rect:
+            return
+        w = max(1, self.game_rect[2] - self.game_rect[0])
+        self.column_xs[self.selected_col] = max(
+            0.0, min(1.0, self.column_xs[self.selected_col] + delta_px / w)
+        )
+        self._refresh_tracking()
+
+    # ---------- 吸色 ----------
+    def on_eyedrop_bg(self) -> None:
+        self.mode = "eyedrop_bg"
+        self.status("吸管模式：按 1 激活，左键取色")
+
+    def on_eyedrop_key(self) -> None:
+        self.mode = "eyedrop_key"
+        self.status("吸管模式：按 1 激活，左键取色")
+
+    def activate_eyedrop(self) -> None:
+        if self.eyedrop_active:
+            return
+        self.eyedrop_active = True
+        if CURSOR_PATH.exists():
+            set_global_cursor(CURSOR_PATH)
+        self.status("吸管已激活，左键取色")
+
+    def _pick_color(self) -> None:
+        x, y = MouseReader.cursor_pos()
+        try:
+            img = grab_rect((x, y, x + 1, y + 1))
+            color = sample_pixel(img, 0, 0)
+        except Exception as exc:
+            self.status(f"取色失败: {exc}")
+            return
+        if self.mode == "eyedrop_bg":
+            self.matcher.add_background(color)
+        else:
+            try:
+                limit = max(1, int(self.key_count_var.get()))
+            except ValueError:
+                limit = 1
+            if len(self.matcher.key_colors) >= limit:
+                self.status(f"按键颜色已达上限 {limit}，可点击色块删除")
+                return
+            self.matcher.add_key(color)
+        self.eyedrop_active = False
+        restore_system_cursor()
+        self._refresh_swatches()
+        self.status(f"已吸取 RGB{tuple(color)}，按 1 继续吸色")
+
+    # ---------- 延迟 ----------
+    def apply_delay_entry(self) -> None:
+        try:
+            self.delay_ms = int(self.delay_var.get())
+        except ValueError:
+            self.status("延迟请输入整数")
+            return
+        if self.engine:
+            self.engine.set_delay(self.delay_ms)
+        self.status(f"延迟已设为 {self.delay_ms} ms")
+
+    def nudge_delay(self, delta_ms: int) -> None:
+        self.delay_ms = self.delay_ms + delta_ms
+        self.delay_var.set(str(self.delay_ms))
+        if self.engine:
+            self.engine.set_delay(self.delay_ms)
+        self.status(f"延迟 {self.delay_ms} ms")
+
+    # ---------- 运行 / 暂停 / 保存 ----------
+    def _sorted_columns(self) -> List[Tuple[float, str]]:
+        pairs = sorted(zip(self.column_xs, self.keys or self._parse_keys()))
+        return [(x, k) for x, k in pairs if k]
+
+    def on_run(self) -> None:
+        errors = []
+        if not self.game_hwnd:
+            errors.append("请先选择游戏窗口")
+        if not self.column_xs:
+            errors.append("请先设置列")
+        if not self._sorted_columns():
+            errors.append("请设置按键绑定（与列数匹配）")
+        if not self.matcher.background_colors:
+            errors.append("请先吸取背景颜色")
+        if not self.matcher.key_colors:
+            errors.append("请先吸取按键颜色")
+        if errors:
+            messagebox.showwarning("提示", "\n".join(errors))
+            return
+
+        wu.set_foreground(self.game_hwnd)
+        rel_points = [(x, self.rel_y) for x, _ in self._sorted_columns()]
+        keys = [k for _, k in self._sorted_columns()]
+        self.engine = AutoplayEngine(
+            self.matcher, self.game_hwnd, keys, rel_points,
+            self.delay_ms, on_log=self.status, on_stopped=self._on_engine_stopped,
+        )
+        self.engine.start()
+        self.run_btn.config(state="disabled")
+        self.pause_btn.config(state="normal")
+        self._refresh_tracking()
+        self.status("运行中…（按4/5调延迟）")
+
+    def on_pause(self) -> None:
+        if self.engine:
+            self.engine.stop()
+            self.engine = None
+        self.run_btn.config(state="normal")
+        self.pause_btn.config(state="disabled")
+        self.overlay.show()
+        self._refresh_tracking()
+        self.status("已暂停")
+
+    def _on_engine_stopped(self, msg: str) -> None:
+        """检测线程回调：入队后由主线程恢复界面。"""
+        try:
+            self._msg_queue.put_nowait(("engine_stopped", msg))
+        except queue.Full:
+            pass
+
+    def _reset_buttons(self) -> None:
+        self.run_btn.config(state="normal")
+        self.pause_btn.config(state="disabled")
+
+    def on_save(self) -> None:
+        sorted_cols = self._sorted_columns()
+        if sorted_cols:
+            columns = [{"x": x, "key": k} for x, k in sorted_cols]
+        else:
+            columns = [{"x": x, "key": k} for x, k in zip(self.column_xs, self.keys)]
+        cfg = {
+            "judgement_line_y": self.rel_y,
+            "column_count": len(columns),
+            "key_string": self.key_string_var.get().strip(),
+            "columns": columns,
+            "background_colors": [list(c) for c in self.matcher.background_colors],
+            "key_colors": [list(c) for c in self.matcher.key_colors],
+            "delay_ms": self.delay_ms,
+            "tolerance": self.matcher.tolerance,
+        }
+        save_config(CONFIG_PATH, cfg)
+        self.status("设置已保存到 config.json")
+
+    # ---------- 全局输入 ----------
+    def on_hotkey(self, key: str) -> None:
+        """钩子线程回调：入队后由主线程处理。"""
+        if self._closing:
+            return
+        try:
+            self._msg_queue.put_nowait(("hotkey", key))
+        except queue.Full:
+            pass
+
+    def _handle_hotkey(self, key: str) -> None:
+        if key in ("4", "5"):
+            # 延迟调整在任何模式下都生效
+            self.nudge_delay(-5 if key == "4" else 5)
+            return
+        if self.mode == "judgement":
+            if key == "1":
+                self.nudge_judgement(-1)
+            elif key == "2":
+                self.nudge_judgement(1)
+            elif key == "3":
+                self.mode = "idle"
+                self.status("判定线设置结束")
+            return
+        if self.mode == "columns":
+            if key == "1":
+                self.nudge_column(-1)
+            elif key == "2":
+                self.nudge_column(1)
+            elif key == "3":
+                self.mode = "idle"
+                self.status("列设置结束")
+            return
+        if self.mode in ("eyedrop_bg", "eyedrop_key") and key == "1":
+            self.activate_eyedrop()
+            return
+
+    # ---------- 轮询 ----------
+    def _tick_tracking(self) -> None:
+        if not self._closing:
+            # 运行中与设置模式下都保持覆盖层跟随窗口
+            self._refresh_tracking()
+            self.root.after(100, self._tick_tracking)
+
+    def _tick_mouse(self) -> None:
+        pressed = MouseReader.left_pressed()
+        if pressed and not self._last_left:
+            self._on_left_click()
+        self._last_left = pressed
+        if not self._closing:
+            self.root.after(30, self._tick_mouse)
+
+    def _on_left_click(self) -> None:
+        x, y = MouseReader.cursor_pos()
+        if self.mode == "select_window":
+            hwnd = wu.find_window_at_point(x, y)
+            own = {int(self.root.winfo_id()), int(self.overlay._window.winfo_id())}
+            if hwnd and hwnd not in own:
+                self.select_game_window(hwnd)
+        elif self.mode == "judgement":
+            rel = self._rel_point(x, y)
+            if rel:
+                h = max(1, self.game_rect[3] - self.game_rect[1])
+                self._set_judgement_px(int(rel[1] * h))
+        elif self.mode == "columns":
+            self._click_column(x, y)
+        elif self.mode in ("eyedrop_bg", "eyedrop_key") and self.eyedrop_active:
+            self._pick_color()
+
+    def _rel_point(self, sx: int, sy: int) -> Optional[Tuple[float, float]]:
+        if not self.game_rect:
+            return None
+        left, top, right, bottom = self.game_rect
+        if not (left <= sx < right and top <= sy < bottom):
+            return None
+        return (
+            (sx - left) / max(1, right - left),
+            (sy - top) / max(1, bottom - top),
+        )
+
+    def _click_column(self, sx: int, sy: int) -> None:
+        rel = self._rel_point(sx, sy)
+        if rel is None:
+            return
+        rx, _ = rel
+        for i, x in enumerate(self.column_xs):
+            if abs(x - rx) < 0.01:
+                self.selected_col = i
+                self._refresh_tracking()
+                self.status(f"选中第 {i + 1} 列，1左移 2右移")
+                return
+        try:
+            count = max(1, int(self.col_count_var.get()))
+        except ValueError:
+            count = 1
+        if len(self.column_xs) >= count:
+            self.status(f"列数已满（{count}），可点击蓝点重新选中")
+            return
+        self.column_xs.append(rx)
+        self.keys = self._parse_keys()
+        self.selected_col = len(self.column_xs) - 1
+        self._refresh_tracking()
+        self.status(f"已添加第 {len(self.column_xs)} 列，1左移 2右移")
+
+    # ---------- 关闭 ----------
+    def on_close(self) -> None:
+        self._closing = True
+        if self.engine:
+            self.engine.stop()
+        self._hook.stop()
+        restore_system_cursor()
+        self.root.destroy()
