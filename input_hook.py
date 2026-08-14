@@ -14,6 +14,25 @@ WM_QUIT = 0x0012
 VK_NUMPAD_BASE = 0x60
 
 
+LowLevelKeyboardProc = ctypes.WINFUNCTYPE(
+    ctypes.c_long, ctypes.c_int, ctypes.c_uint, ctypes.c_void_p
+)
+ctypes.windll.user32.CallNextHookEx.argtypes = [
+    ctypes.c_void_p, ctypes.c_int, ctypes.c_uint, ctypes.c_void_p
+]
+ctypes.windll.user32.CallNextHookEx.restype = ctypes.c_long
+
+
+class KBDLLHOOKSTRUCT(ctypes.Structure):
+    _fields_ = [
+        ("vkCode", ctypes.c_ulong),
+        ("scanCode", ctypes.c_ulong),
+        ("flags", ctypes.c_ulong),
+        ("time", ctypes.c_ulong),
+        ("dwExtraInfo", ctypes.c_ulonglong),
+    ]
+
+
 def map_vk_to_hotkey(vk: int) -> Optional[str]:
     """数字键 1~5（含小键盘）→ "1".."5"；其它返回 None。"""
     if 0x31 <= vk <= 0x35:
@@ -28,13 +47,15 @@ class GlobalKeyHook:
 
     def __init__(self, callback: Callable[[str], None]):
         self._callback = callback
+        self._proc = LowLevelKeyboardProc(self._impl)
         self._hook = None
         self._thread: Optional[threading.Thread] = None
         self._running = False
 
-    def _proc(self, n_code, w_param, l_param) -> int:
+    def _impl(self, n_code, w_param, l_param) -> int:
         if n_code >= 0 and w_param in (WM_KEYDOWN, WM_SYSKEYDOWN):
-            vk = ctypes.cast(l_param, ctypes.POINTER(ctypes.c_long)).contents.value & 0xFF
+            kb = ctypes.cast(l_param, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+            vk = kb.vkCode & 0xFF
             key = map_vk_to_hotkey(vk)
             if key is not None:
                 try:

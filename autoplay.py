@@ -58,6 +58,16 @@ class KeySender:
         vk = _vk_for(key)
         flags = 0 if down else self.KEYEVENTF_KEYUP
 
+        class MOUSEINPUT(ctypes.Structure):
+            _fields_ = [
+                ("dx", ctypes.c_long),
+                ("dy", ctypes.c_long),
+                ("mouseData", ctypes.c_ulong),
+                ("dwFlags", ctypes.c_ulong),
+                ("time", ctypes.c_ulong),
+                ("dwExtraInfo", ctypes.c_ulonglong),
+            ]
+
         class KEYBDINPUT(ctypes.Structure):
             _fields_ = [
                 ("wVk", ctypes.c_ushort),
@@ -67,13 +77,29 @@ class KeySender:
                 ("dwExtraInfo", ctypes.c_ulonglong),
             ]
 
-        class INPUT(ctypes.Structure):
+        class HARDWAREINPUT(ctypes.Structure):
             _fields_ = [
-                ("type", ctypes.c_ulong),
-                ("ki", KEYBDINPUT),
+                ("uMsg", ctypes.c_ulong),
+                ("wParamL", ctypes.c_ushort),
+                ("wParamH", ctypes.c_ushort),
             ]
 
-        inp = INPUT(self.INPUT_KEYBOARD, KEYBDINPUT(vk, 0, flags, 0, 0))
+        class _INPUTUNION(ctypes.Union):
+            _fields_ = [
+                ("mi", MOUSEINPUT),
+                ("ki", KEYBDINPUT),
+                ("hi", HARDWAREINPUT),
+            ]
+
+        class INPUT(ctypes.Structure):
+            _anonymous_ = ("u",)
+            _fields_ = [
+                ("type", ctypes.c_ulong),
+                ("u", _INPUTUNION),
+            ]
+
+        inp = INPUT(self.INPUT_KEYBOARD)
+        inp.ki = KEYBDINPUT(vk, 0, flags, 0, 0)
         ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
 
 
