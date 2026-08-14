@@ -14,7 +14,7 @@
 
 - 项目根目录：`D:\App\Game\color-based Autoplay`（下文所有路径相对于此）
 - Python 版本：3.11（仅标准库 + `pywin32>=306`、`Pillow>=10.0`、`pytest>=7`）
-- 覆盖层：黄框 10px、红线 3px、蓝点为空心圆环（中心透明 ≥6px），红线在蓝点处断开 ±6px
+- 覆盖层：黄框 8px、红线 3px、蓝点为空心圆环（中心透明 ≥6px），红线在蓝点处断开 ±6px
 - 延迟语义：正数 = 推后 N ms 按下；负数等效为 0（`delay = max(0, delay_ms)`）
 - 检测：仅读取蓝点中心像素；检测线程独立；单帧 ≤10ms，目标 ≥100 次/秒
 - 判定优先级：命中按键色 > 命中背景色 > 保持上一帧状态
@@ -719,7 +719,7 @@ git commit -m "feat: 实现截屏与像素采样模块"
     - `clear_columns(self) -> None`
     - `show(self) / hide(self)`
 
-绘制规则：黄框 10px（`#FFD800`）、红线 3px（`#FF3B30`）在蓝点 x 处左右各断 6px、蓝点空心圆环（外径 5px 线宽 2px，`#3B82F6`），透明色 `#010203`。
+绘制规则：黄框 8px（`#FFD800`）、红线 3px（`#FF3B30`）在蓝点 x 处左右各断 6px、蓝点空心圆环（外径 5px 线宽 2px，`#3B82F6`），透明色 `#010203`。
 
 - [ ] **Step 1: 写失败的测试**
 
@@ -793,7 +793,7 @@ TRANSPARENT_KEY = "#010203"   # tkinter 透明色
 YELLOW = "#FFD800"
 RED = "#FF3B30"
 BLUE = "#3B82F6"
-FRAME_WIDTH = 10              # 黄框线宽
+FRAME_WIDTH = 8               # 黄框线宽
 LINE_WIDTH = 3                # 红线线宽
 NOTCH = 6                     # 红线在蓝点处断开半径
 RING_RADIUS = 5               # 蓝点外径
@@ -871,7 +871,7 @@ class Overlay:
         width = int(c.cget("width"))
         height = int(c.cget("height"))
 
-        # 黄框（窗口边缘，10px）
+        # 黄框（窗口边缘，8px）
         c.create_rectangle(
             0, 0, width - 1, height - 1,
             outline=YELLOW, width=FRAME_WIDTH,

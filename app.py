@@ -29,7 +29,7 @@ class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Malody 颜色自动游玩")
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
 
         self.cfg = load_config(CONFIG_PATH)
         self.rel_y = float(self.cfg["judgement_line_y"])
