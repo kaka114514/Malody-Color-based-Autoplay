@@ -36,6 +36,7 @@ class App:
         if isinstance(size, (list, tuple)) and len(size) == 2 and size[0] > 0 and size[1] > 0:
             self.root.geometry(f"{int(size[0])}x{int(size[1])}")
         self.rel_y = float(self.cfg["judgement_line_y"])
+        self.judgement_px = int(self.cfg.get("judgement_line_px", 0))
         self.column_xs: List[float] = [c["x"] for c in self.cfg["columns"]]
         self.keys: List[str] = [c["key"] for c in self.cfg["columns"]]
         self.delay_ms = int(self.cfg["delay_ms"])
@@ -62,7 +63,10 @@ class App:
         self.root.update_idletasks()
         # 判定线高度按当前窗口实际高度换算像素显示，与输入值一致
         win_h = max(1, self.root.winfo_height())
-        self.judgement_var.set(str(int(self.rel_y * win_h)))
+        if self.judgement_px > 0:
+            self.judgement_var.set(str(self.judgement_px))
+        else:
+            self.judgement_var.set(str(int(self.rel_y * win_h)))
         self._restore_matcher()
         self._refresh_swatches()
 
@@ -97,7 +101,9 @@ class App:
         row = tk.Frame(f)
         row.pack(fill="x", **pad)
         tk.Label(row, text="列数").pack(side="left")
-        self.col_count_var = tk.StringVar(value=str(len(self.column_xs) or 4))
+        self.col_count_var = tk.StringVar(
+            value=str(self.cfg.get("column_count", len(self.column_xs) or 4))
+        )
         tk.Entry(row, textvariable=self.col_count_var, width=5).pack(side="left", padx=4)
         tk.Label(row, text="按键").pack(side="left")
         self.key_string_var = tk.StringVar(value=str(self.cfg.get("key_string", "")))
@@ -117,7 +123,7 @@ class App:
         row = tk.Frame(f)
         row.pack(fill="x", **pad)
         tk.Label(row, text="按键颜色数量").pack(side="left")
-        self.key_count_var = tk.StringVar(value="1")
+        self.key_count_var = tk.StringVar(value=str(self.cfg.get("key_color_count", 1)))
         tk.Entry(row, textvariable=self.key_count_var, width=4).pack(side="left", padx=4)
         tk.Button(row, text="吸色(按1激活,左键取色)", command=self.on_eyedrop_key).pack(side="left", padx=4)
         self.key_swatch_frame = tk.Frame(row)
@@ -258,6 +264,12 @@ class App:
         log.info("select_game_window hwnd=%s own_root=%s own_overlay=%s",
                  hwnd, int(self.root.winfo_id()), self.overlay.hwnd)
         self.game_hwnd = hwnd
+        # 按保存的像素高度换算判定线（游戏窗口尺寸确定后）
+        rect = wu.get_window_rect(hwnd)
+        if self.judgement_px > 0:
+            h = max(1, rect[3] - rect[1])
+            self.rel_y = max(0.0, min(1.0, self.judgement_px / h))
+            self.judgement_var.set(str(self.judgement_px))
         self._refresh_tracking()
         self.mode = "idle"
         log.info("after select: mode=%s game_hwnd=%s", self.mode, self.game_hwnd)
@@ -300,6 +312,7 @@ class App:
         self._set_judgement_px(y)
 
     def _set_judgement_px(self, px: int) -> None:
+        self.judgement_px = px
         if not self.game_rect:
             return
         h = max(1, self.game_rect[3] - self.game_rect[1])
@@ -312,7 +325,8 @@ class App:
             return
         h = max(1, self.game_rect[3] - self.game_rect[1])
         self.rel_y = max(0.0, min(1.0, self.rel_y + delta_px / h))
-        self.judgement_var.set(str(int(self.rel_y * h)))
+        self.judgement_px = int(self.rel_y * h)
+        self.judgement_var.set(str(self.judgement_px))
         self.overlay.set_judgement_y(self.rel_y)
 
     # ---------- 列 ----------
@@ -472,15 +486,33 @@ class App:
             columns = [{"x": x, "key": k} for x, k in sorted_cols]
         else:
             columns = [{"x": x, "key": k} for x, k in zip(self.column_xs, self.keys)]
+        try:
+            col_count = max(1, int(self.col_count_var.get()))
+        except ValueError:
+            col_count = len(columns)
+        try:
+            key_color_count = max(1, int(self.key_count_var.get()))
+        except ValueError:
+            key_color_count = 1
+        # 判定线像素：优先用当前像素值；否则按游戏窗口高度换算
+        if self.judgement_px > 0:
+            judgement_px = self.judgement_px
+        elif self.game_rect:
+            h = max(1, self.game_rect[3] - self.game_rect[1])
+            judgement_px = int(round(self.rel_y * h))
+        else:
+            judgement_px = int(round(self.rel_y * 1000))
         cfg = {
             "judgement_line_y": self.rel_y,
-            "column_count": len(columns),
+            "judgement_line_px": judgement_px,
+            "column_count": col_count,
             "key_string": self.key_string_var.get().strip(),
             "columns": columns,
             "background_colors": [list(c) for c in self.matcher.background_colors],
             "key_colors": [list(c) for c in self.matcher.key_colors],
             "delay_ms": self.delay_ms,
             "tolerance": self.matcher.tolerance,
+            "key_color_count": key_color_count,
             "window_size": [self.root.winfo_width(), self.root.winfo_height()],
         }
         save_config(CONFIG_PATH, cfg)

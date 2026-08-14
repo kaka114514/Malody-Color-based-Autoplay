@@ -30,6 +30,8 @@ def test_round_trip(tmp_path: Path):
         "key_colors": [[240, 80, 90], [255, 200, 60]],
         "delay_ms": -5,
         "tolerance": 40,
+        "judgement_line_px": 456,
+        "key_color_count": 2,
         "window_size": [0, 0],
     }
     save_config(path, cfg)

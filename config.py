@@ -7,6 +7,7 @@ from typing import Any
 
 DEFAULT_CONFIG: dict = {
     "judgement_line_y": 0.78,          # 判定线相对高度 0~1
+    "judgement_line_px": 0,            # 判定线像素高度（游戏窗口内；0=未设置）
     "column_count": 4,                 # 列数
     "key_string": "DFJK",              # 按键绑定原始字符串
     "columns": [                       # 每列：相对 x 与按键
@@ -19,6 +20,7 @@ DEFAULT_CONFIG: dict = {
     "key_colors": [],                  # [ [r,g,b], ... ]
     "delay_ms": 0,                     # 允许负数，运行时按 max(0, v) 处理
     "tolerance": 40,                   # 颜色欧氏距离容差 0~255
+    "key_color_count": 1,              # 按键颜色数量
     "window_size": [0, 0],             # 主窗口宽高；[0,0] 表示未设置
 }
 
@@ -58,6 +60,16 @@ def normalize_config(raw: dict) -> dict:
             cfg[field] = value
         except (TypeError, ValueError):
             cfg[field] = DEFAULT_CONFIG[field]
+
+    try:
+        cfg["judgement_line_px"] = max(0, int(cfg.get("judgement_line_px", 0)))
+    except (TypeError, ValueError):
+        cfg["judgement_line_px"] = 0
+
+    try:
+        cfg["key_color_count"] = max(1, int(cfg.get("key_color_count", 1)))
+    except (TypeError, ValueError):
+        cfg["key_color_count"] = 1
 
     if not isinstance(cfg["key_string"], str):
         cfg["key_string"] = DEFAULT_CONFIG["key_string"]
