@@ -209,7 +209,10 @@ class AutoplayEngine:
             width = max(1, rect[2] - rect[0])
             height = max(1, rect[3] - rect[1])
             screen_points = [
-                (rect[0] + int(x * width), rect[1] + int(y * height))
+                (
+                    rect[0] + min(int(x * width), max(0, width - 1)),
+                    rect[1] + min(int(y * height), max(0, height - 1)),
+                )
                 for x, y in self._rel_points
             ]
             bbox = make_bbox(screen_points, pad=2)
@@ -237,6 +240,9 @@ class AutoplayEngine:
             now_real = time.perf_counter()
             if now_real - last_log >= 1.0:
                 fps = frames / (now_real - last_log)
-                self._on_log(f"检测频率: {fps:.0f} 次/秒")
+                states = []
+                for i, color in enumerate(colors):
+                    states.append(f"{self._keys[i]}:{self._matcher.classify(color)}{tuple(color)}")
+                self._on_log(f"检测频率: {fps:.0f} 次/秒 | 状态: {' '.join(states)}")
                 frames = 0
                 last_log = now_real

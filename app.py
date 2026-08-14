@@ -297,7 +297,8 @@ class App:
         rect = wu.get_window_rect(hwnd)
         if self.judgement_px > 0:
             h = max(1, rect[3] - rect[1])
-            self.rel_y = max(0.0, min(1.0, self.judgement_px / h))
+            max_y = max(0.0, (h - 1) / h)
+            self.rel_y = max(0.0, min(max_y, self.judgement_px / h))
             self.judgement_var.set(str(self.judgement_px))
         self._refresh_tracking()
         self.mode = "idle"
@@ -345,7 +346,8 @@ class App:
         if not self.game_rect:
             return
         h = max(1, self.game_rect[3] - self.game_rect[1])
-        self.rel_y = max(0.0, min(1.0, px / h))
+        max_y = max(0.0, (h - 1) / h)
+        self.rel_y = max(0.0, min(max_y, px / h))
         self.judgement_var.set(str(px))
         self.overlay.set_judgement_y(self.rel_y)
 
@@ -621,7 +623,8 @@ class App:
         # 判定线按像素换算（若已选游戏窗口）
         if self.game_rect and self.judgement_px > 0:
             h = max(1, self.game_rect[3] - self.game_rect[1])
-            self.rel_y = max(0.0, min(1.0, self.judgement_px / h))
+            max_y = max(0.0, (h - 1) / h)
+            self.rel_y = max(0.0, min(max_y, self.judgement_px / h))
 
         self._refresh_swatches()
         self._refresh_tracking()

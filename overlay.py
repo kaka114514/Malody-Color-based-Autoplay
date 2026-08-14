@@ -359,7 +359,7 @@ class Overlay:
             gdi32.DeleteObject(pen)
 
             # 红线（3px，蓝点处断开）
-            y = int(rel_y * height)
+            y = min(int(rel_y * height), max(0, height - 1))
             pen = gdi32.CreatePen(PS_SOLID, LINE_WIDTH, _rgb(RED))
             old = gdi32.SelectObject(hdc, pen)
             xs = sorted(rel_x * width for rel_x in rel_xs)
