@@ -1,7 +1,16 @@
 import tkinter as tk
 import time
+import ctypes
 
+import win32gui
 from overlay import Overlay
+
+
+user32 = ctypes.windll.user32
+user32.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+user32.SendMessageW.restype = ctypes.c_long
+WM_NCHITTEST = 0x0084
+HTTRANSPARENT = -1
 
 
 def _make_overlay():
@@ -39,4 +48,16 @@ def test_overlay_clear_columns():
     root, ov = _make_overlay()
     ov.clear_columns()
     root.update()
+    root.destroy()
+
+
+def test_overlay_hit_test_is_transparent():
+    """覆盖层命中测试必须返回 HTTRANSPARENT，否则会拦截游戏点击。"""
+    root, ov = _make_overlay()
+    hwnd = int(ov._window.winfo_id())
+    rect = win32gui.GetWindowRect(hwnd)
+    cx, cy = (rect[0] + rect[2]) // 2, (rect[1] + rect[3]) // 2
+    lp = (cy << 16) | (cx & 0xFFFF)
+    result = user32.SendMessageW(hwnd, WM_NCHITTEST, 0, lp)
+    assert result == HTTRANSPARENT
     root.destroy()

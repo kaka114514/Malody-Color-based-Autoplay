@@ -1,5 +1,6 @@
 """透明覆盖层：黄框、红线、蓝点。点击穿透、置顶、不抢焦点。"""
 
+import ctypes
 import tkinter as tk
 from typing import List, Optional, Tuple
 
@@ -16,6 +17,10 @@ LINE_WIDTH = 3                # 红线线宽
 NOTCH = 6                     # 红线在蓝点处断开半径
 RING_RADIUS = 5               # 蓝点外径
 RING_WIDTH = 2
+
+WM_NCHITTEST = 0x0084
+HTTRANSPARENT = -1
+GWLP_WNDPROC = -4
 
 
 class Overlay:
@@ -37,6 +42,7 @@ class Overlay:
         self._rel_xs: List[float] = []
         self._selected = -1
         self._apply_click_through()
+        self._install_hit_test_hook()
 
     def _apply_click_through(self) -> None:
         """加扩展样式：分层、点击穿透、工具窗口、不激活。"""
@@ -49,6 +55,37 @@ class Overlay:
             | win32con.WS_EX_NOACTIVATE
         )
         win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, style)
+
+    def _install_hit_test_hook(self) -> None:
+        """替换窗口过程：WM_NCHITTEST 返回 HTTRANSPARENT，实现点击穿透。
+
+        Tk 的窗口过程对 WM_NCHITTEST 返回 HTCLIENT，会覆盖
+        WS_EX_TRANSPARENT 的默认穿透行为，导致覆盖层拦截鼠标点击。
+        """
+        hwnd = int(self._window.winfo_id())
+        user32 = ctypes.windll.user32
+        user32.SetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
+        user32.SetWindowLongPtrW.restype = ctypes.c_void_p
+        user32.CallWindowProcW.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint,
+            ctypes.c_void_p, ctypes.c_void_p,
+        ]
+        user32.CallWindowProcW.restype = ctypes.c_long
+
+        wndproc_type = ctypes.WINFUNCTYPE(
+            ctypes.c_long, ctypes.c_void_p, ctypes.c_uint,
+            ctypes.c_void_p, ctypes.c_void_p,
+        )
+        old_proc = ctypes.c_void_p()
+
+        def proc(hwnd, msg, w_param, l_param):
+            if msg == WM_NCHITTEST:
+                return HTTRANSPARENT
+            return user32.CallWindowProcW(old_proc, hwnd, msg, w_param, l_param)
+
+        # 回调与旧过程必须保持引用，避免被 GC
+        self._wndproc = wndproc_type(proc)
+        self._old_wndproc = user32.SetWindowLongPtrW(hwnd, GWLP_WNDPROC, self._wndproc)
 
     def set_game_rect(self, rect: Tuple[int, int, int, int]) -> None:
         """定位覆盖层到游戏窗口矩形并重绘。"""
