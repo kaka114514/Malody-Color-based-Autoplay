@@ -61,3 +61,17 @@ def test_overlay_hit_test_is_transparent():
     result = user32.SendMessageW(hwnd, WM_NCHITTEST, 0, lp)
     assert result == HTTRANSPARENT
     root.destroy()
+
+
+def test_overlay_frame_width_is_10():
+    """黄框线宽应为 10px。"""
+    root, ov = _make_overlay()
+    canvas = ov._canvas
+    frames = [
+        i for i in canvas.find_all()
+        if canvas.type(i) == "rectangle"
+        and canvas.itemcget(i, "outline").upper() == "#FFD800"
+    ]
+    assert frames, "未找到黄框"
+    assert int(float(canvas.itemcget(frames[0], "width"))) == 10
+    root.destroy()
