@@ -43,6 +43,7 @@ class App:
         self.mode = "idle"
         self.eyedrop_active = False
         self.selected_col = -1
+        self._overlay_visible = True
         self.engine: Optional[AutoplayEngine] = None
         self._last_left = False
         self._closing = False
@@ -208,6 +209,9 @@ class App:
         self.game_rect = wu.get_window_rect(self.game_hwnd)
         log.info("tracking: rect=%s overlay_visible=%s", self.game_rect,
                  bool(self.overlay.hwnd and win32gui.IsWindowVisible(self.overlay.hwnd)))
+        if not self._overlay_visible:
+            self.overlay.hide()
+            return
         self.overlay.set_game_rect(self.game_rect)
         self.overlay.set_judgement_y(self.rel_y)
         self.overlay.set_columns(self.column_xs, self.selected_col)
@@ -430,6 +434,20 @@ class App:
         if key in ("4", "5"):
             # 延迟调整在任何模式下都生效
             self.nudge_delay(-5 if key == "4" else 5)
+            return
+        if key == "6":
+            # 隐藏覆盖层并把游戏窗口置前
+            self._overlay_visible = False
+            self.overlay.hide()
+            if self.game_hwnd:
+                wu.set_foreground(self.game_hwnd)
+            self.status("覆盖层已隐藏（按 7 显示）")
+            return
+        if key == "7":
+            # 显示覆盖层
+            self._overlay_visible = True
+            self._refresh_tracking()
+            self.status("覆盖层已显示")
             return
         if self.mode == "judgement":
             if key == "1":

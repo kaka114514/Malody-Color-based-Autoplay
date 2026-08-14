@@ -34,10 +34,10 @@ class KBDLLHOOKSTRUCT(ctypes.Structure):
 
 
 def map_vk_to_hotkey(vk: int) -> Optional[str]:
-    """数字键 1~5（含小键盘）→ "1".."5"；其它返回 None。"""
-    if 0x31 <= vk <= 0x35:
+    """数字键 1~7（含小键盘）→ "1".."7"；其它返回 None。"""
+    if 0x31 <= vk <= 0x37:
         return chr(vk)
-    if VK_NUMPAD_BASE + 1 <= vk <= VK_NUMPAD_BASE + 5:
+    if VK_NUMPAD_BASE + 1 <= vk <= VK_NUMPAD_BASE + 7:
         return chr(vk - VK_NUMPAD_BASE)
     return None
 
