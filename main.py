@@ -1,13 +1,24 @@
 """程序入口。"""
 
+import atexit
+import logging
 import tkinter as tk
 
 import window_utils as wu
 from app import App
+from input_hook import restore_system_cursor
 
 
 def main() -> None:
+    logging.basicConfig(
+        filename="autoplay_debug.log",
+        level=logging.DEBUG,
+        format="%(asctime)s %(message)s",
+        encoding="utf-8",
+    )
     wu.set_process_dpi_aware()
+    restore_system_cursor()  # 兜底：清除上次异常退出残留的吸管光标
+    atexit.register(restore_system_cursor)
     root = tk.Tk()
     # 初始位置放到屏幕右上角，避免遮住游戏窗口
     root.update_idletasks()
