@@ -176,6 +176,8 @@ class App:
         tk.Button(row, text="恢复", command=self.on_restore, width=8).pack(side="left", padx=8)
 
         self.status_var = tk.StringVar(value="")
+        self.freq_var = tk.StringVar(value="")
+        tk.Label(f, textvariable=self.freq_var, anchor="w", justify="left", fg="#444444").pack(fill="x", **pad)
         self._status_label = tk.Label(f, textvariable=self.status_var, anchor="w", justify="left")
         self._status_label.pack(fill="x", **pad)
         self._hint_labels = [
@@ -260,7 +262,12 @@ class App:
             while True:
                 kind, payload = self._msg_queue.get_nowait()
                 if kind == "status":
-                    self.status_var.set(payload)
+                    if payload.startswith("freq:"):
+                        self.freq_var.set(payload[5:].strip())
+                    elif payload.startswith("state:"):
+                        self.status_var.set(payload[6:].strip())
+                    else:
+                        self.status_var.set(payload)
                 elif kind == "hotkey":
                     self._handle_hotkey(payload)
                 elif kind == "engine_stopped":

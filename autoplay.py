@@ -242,15 +242,15 @@ class AutoplayEngine:
             if states != last_states:
                 last_states = list(states)
                 detail = " ".join(
-                    f"{self._keys[i]}:{cls}{tuple(color)}"
-                    for i, (cls, color) in enumerate(zip(states, colors))
+                    f"{self._keys[i]}:{cls}"
+                    for i, cls in enumerate(states)
                 )
-                self._on_log(f"状态: {detail}")
+                self._on_log(f"state: {detail}")
 
             frames += 1
             now_real = time.perf_counter()
             if now_real - last_log >= 1.0:
                 fps = frames / (now_real - last_log)
-                self._on_log(f"检测频率: {fps:.0f} 次/秒")
+                self._on_log(f"freq: {fps:.0f} 次/秒")
                 frames = 0
                 last_log = now_real
