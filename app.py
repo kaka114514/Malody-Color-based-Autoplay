@@ -488,6 +488,7 @@ class App:
         self.pause_btn.config(state="disabled")
 
     def on_save(self) -> None:
+        self._cancel_eyedrop()  # 保存前恢复系统光标
         sorted_cols = self._sorted_columns()
         if sorted_cols:
             columns = [{"x": x, "key": k} for x, k in sorted_cols]
