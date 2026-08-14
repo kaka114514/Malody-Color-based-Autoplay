@@ -176,10 +176,27 @@ class App:
         tk.Button(row, text="恢复", command=self.on_restore, width=8).pack(side="left", padx=8)
 
         self.status_var = tk.StringVar(value="")
-        tk.Label(f, textvariable=self.status_var, anchor="w").pack(fill="x", **pad)
-        tk.Label(f, text="热键：4 延迟-5ms | 5 延迟+5ms", anchor="w", fg="#666666").pack(fill="x", **pad)
-        tk.Label(f, text="6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换", anchor="w", fg="#666666").pack(fill="x", **pad)
-        tk.Label(f, text="9 运行 | 0 暂停", anchor="w", fg="#666666").pack(fill="x", **pad)
+        self._status_label = tk.Label(f, textvariable=self.status_var, anchor="w", justify="left")
+        self._status_label.pack(fill="x", **pad)
+        self._hint_labels = [
+            tk.Label(f, text="热键：4 延迟-5ms | 5 延迟+5ms", anchor="w", justify="left", fg="#666666"),
+            tk.Label(f, text="6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换", anchor="w", justify="left", fg="#666666"),
+            tk.Label(f, text="9 运行 | 0 暂停", anchor="w", justify="left", fg="#666666"),
+        ]
+        for lbl in self._hint_labels:
+            lbl.pack(fill="x", **pad)
+        # 窗口宽度变化时，长文字自动换行
+        self.root.bind("<Configure>", self._on_resize)
+        self.root.minsize(360, 260)
+
+    def _on_resize(self, event) -> None:
+        """状态栏与热键提示随窗口宽度自动换行。"""
+        if not hasattr(self, "_status_label"):
+            return
+        wrap = max(100, event.width - 24)
+        self._status_label.config(wraplength=wrap)
+        for lbl in self._hint_labels:
+            lbl.config(wraplength=wrap)
 
     def status(self, msg: str) -> None:
         """线程安全的状态栏更新（经消息队列转发到主线程）。"""
