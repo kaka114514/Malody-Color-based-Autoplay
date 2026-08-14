@@ -14,13 +14,12 @@ from autoplay import AutoplayEngine
 from capture import grab_rect, sample_pixel
 from color_matcher import ColorMatcher
 from config import load_config, save_config
-from input_hook import GlobalKeyHook, MouseReader, restore_system_cursor, set_global_cursor
+from input_hook import GlobalKeyHook, MouseReader
 from overlay import BLUE, YELLOW, Overlay
 
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.json"
-CURSOR_PATH = BASE_DIR / "cursor.cur"
 
 log = logging.getLogger("autoplay_debug")
 
@@ -202,7 +201,6 @@ class App:
     def _cancel_eyedrop(self) -> None:
         if self.eyedrop_active:
             self.eyedrop_active = False
-            restore_system_cursor()
             self.status("已取消吸管")
 
     def _on_overlay_click(self, sx: int, sy: int) -> None:
@@ -386,8 +384,6 @@ class App:
         if self.eyedrop_active:
             return
         self.eyedrop_active = True
-        if CURSOR_PATH.exists():
-            set_global_cursor(CURSOR_PATH)
         self.status("吸管已激活，左键取色")
 
     def _pick_color(self) -> None:
@@ -410,7 +406,6 @@ class App:
                 return
             self.matcher.add_key(color)
         self.eyedrop_active = False
-        restore_system_cursor()
         self._refresh_swatches()
         self.status(f"已吸取 RGB{tuple(color)}，按 1 继续吸色")
 
@@ -716,7 +711,6 @@ class App:
             self.engine.stop()
         self._hook.stop()
         self.overlay.destroy()
-        restore_system_cursor()
         try:
             self.on_save()  # 关闭时自动保存当前设置
         except Exception:

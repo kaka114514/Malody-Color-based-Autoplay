@@ -1,0 +1,54 @@
+{
+  "judgement_line_y": 0.8168761220825853,
+  "judgement_line_px": 910,
+  "column_count": 4,
+  "key_string": "DFJK",
+  "columns": [
+    {
+      "x": 0.2,
+      "key": "D"
+    },
+    {
+      "x": 0.4,
+      "key": "F"
+    },
+    {
+      "x": 0.6,
+      "key": "J"
+    },
+    {
+      "x": 0.8,
+      "key": "K"
+    }
+  ],
+  "background_colors": [
+    [
+      0,
+      0,
+      0
+    ]
+  ],
+  "key_colors": [
+    [
+      255,
+      255,
+      255
+    ],
+    [
+      255,
+      181,
+      181
+    ]
+  ],
+  "delay_ms": 0,
+  "tolerance": 40,
+  "key_color_count": 2,
+  "window_size": [
+    678,
+    565
+  ],
+  "window_position": [
+    1853,
+    23
+  ]
+}

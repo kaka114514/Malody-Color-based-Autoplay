@@ -3,7 +3,6 @@
 import ctypes
 import ctypes.wintypes
 import threading
-from pathlib import Path
 from typing import Callable, Optional, Tuple
 
 
@@ -113,19 +112,3 @@ class MouseReader:
         pt = ctypes.wintypes.POINT()
         ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
         return int(pt.x), int(pt.y)
-
-
-def set_global_cursor(cur_path: Path) -> None:
-    """把系统箭头临时替换为吸管光标（取色结束后必须恢复）。"""
-    hcur = ctypes.windll.user32.LoadImageW(
-        None, str(cur_path), 2, 0, 0, 0x0010  # IMAGE_CURSOR, LR_LOADFROMFILE
-    )
-    if hcur:
-        ctypes.windll.user32.SetSystemCursor(hcur, 32512)  # OCR_NORMAL
-
-
-def restore_system_cursor() -> None:
-    """恢复系统默认箭头光标。"""
-    hcur = ctypes.windll.user32.LoadCursorW(None, 32512)  # IDC_ARROW
-    if hcur:
-        ctypes.windll.user32.SetSystemCursor(hcur, 32512)
