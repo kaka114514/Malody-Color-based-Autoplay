@@ -300,6 +300,8 @@ class App:
         self.status(f"坐标 ({sx}, {sy}) 颜色值 {tuple(color)}")
 
     def _in_block_region(self, x: int, y: int) -> bool:
+        if self.eyedrop_active:
+            return False  # 吸管激活时放行点击，用于取色
         if not self.game_rect:
             return False
         left, top, right, bottom = self.game_rect
