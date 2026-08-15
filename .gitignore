@@ -9,3 +9,4 @@ config.json
 *.png
 *.log
 configs/
+!app_icon.png
