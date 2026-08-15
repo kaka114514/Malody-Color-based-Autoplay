@@ -178,7 +178,10 @@ class App:
         ent.bind("<Return>", lambda _e: self.apply_delay_entry())
         self.delay_var.trace_add("write", self._delay_trace)
         tk.Label(row, text="运行中 4=提前5ms 5=推后5ms").pack(side="left")
-        tk.Label(row, text="最短按压(ms)").pack(side="left", padx=(12, 0))
+
+        row = tk.Frame(f)
+        row.pack(fill="x", **pad)
+        tk.Label(row, text="最短按压时长(ms)").pack(side="left")
         self.min_hold_var = tk.StringVar(value=str(self.min_hold_ms))
         ent = tk.Entry(row, textvariable=self.min_hold_var, width=5)
         ent.pack(side="left", padx=4)
