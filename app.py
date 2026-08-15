@@ -729,6 +729,7 @@ class App:
 
     def _handle_hotkey(self, key: str) -> None:
         focused = self.root.focus_get()
+        log.info("hotkey: %s focused=%s", key, type(focused).__name__)
         if isinstance(focused, tk.Entry) and key != "ctrl":
             return  # 输入状态：不触发热键，仅作为输入字符
         if key == "ctrl":
