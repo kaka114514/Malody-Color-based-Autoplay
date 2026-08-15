@@ -32,6 +32,7 @@ def test_round_trip(tmp_path: Path):
         "tolerance": 40,
         "judgement_line_px": 456,
         "key_color_count": 2,
+        "min_hold_ms": 20,
         "window_size": [0, 0],
         "window_position": [-1, -1],
     }

@@ -114,10 +114,11 @@ class KeySender:
 class KeyScheduler:
     """按键调度：按下沿带延迟、松开沿立即；纯逻辑，便于测试。"""
 
-    def __init__(self, sender, keys: List[str], delay_ms: int = 0) -> None:
+    def __init__(self, sender, keys: List[str], delay_ms: int = 0, min_hold_ms: int = MIN_HOLD_MS) -> None:
         self._sender = sender
         self._keys = list(keys)
         self._delay = max(0, int(delay_ms))
+        self._min_hold_ms = max(0, int(min_hold_ms))
         self._desired: List[bool] = []
         self._pressed: List[bool] = []
         self._pending_at: Dict[int, float] = {}
@@ -125,6 +126,9 @@ class KeyScheduler:
 
     def set_delay(self, ms: int) -> None:
         self._delay = max(0, int(ms))
+
+    def set_min_hold(self, ms: int) -> None:
+        self._min_hold_ms = max(0, int(ms))
 
     def set_count(self, n: int) -> None:
         self._desired = [False] * n
@@ -155,7 +159,7 @@ class KeyScheduler:
                     self._pressed[i] = True
                 else:
                     # 音符已过：短按，但至少按住 MIN_HOLD_MS 让游戏显示按键
-                    self._release_at[i] = now_ms + MIN_HOLD_MS
+                    self._release_at[i] = now_ms + self._min_hold_ms
         for i in list(self._release_at):
             if self._release_at[i] <= now_ms:
                 self._release_at.pop(i)
@@ -179,6 +183,7 @@ class AutoplayEngine:
         keys: List[str],
         rel_points: List[Tuple[float, float]],
         delay_ms: int = 0,
+        min_hold_ms: int = MIN_HOLD_MS,
         on_log: Optional[Callable[[str], None]] = None,
         on_stopped: Optional[Callable[[str], None]] = None,
     ) -> None:
@@ -187,7 +192,7 @@ class AutoplayEngine:
         self._keys = list(keys)
         self._rel_points = [(float(x), float(y)) for x, y in rel_points]
         self._sender = KeySender()
-        self._scheduler = KeyScheduler(self._sender, self._keys, delay_ms)
+        self._scheduler = KeyScheduler(self._sender, self._keys, delay_ms, min_hold_ms)
         self._on_log = on_log or (lambda msg: None)
         self._on_stopped = on_stopped
         self._running = False
@@ -213,6 +218,9 @@ class AutoplayEngine:
 
     def set_delay(self, ms: int) -> None:
         self._scheduler.set_delay(ms)
+
+    def set_min_hold(self, ms: int) -> None:
+        self._scheduler.set_min_hold(ms)
 
     def _loop(self) -> None:
         frames = 0

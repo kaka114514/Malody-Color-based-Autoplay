@@ -67,6 +67,7 @@ class App:
         self.column_xs: List[float] = [c["x"] for c in self.cfg["columns"]]
         self.keys: List[str] = [c["key"] for c in self.cfg["columns"]]
         self.delay_ms = int(self.cfg["delay_ms"])
+        self.min_hold_ms = int(self.cfg.get("min_hold_ms", 20))
         self.matcher = ColorMatcher(tolerance=int(self.cfg["tolerance"]))
 
         self.game_hwnd: Optional[int] = None
@@ -165,6 +166,11 @@ class App:
         ent.bind("<Return>", lambda _e: self.apply_delay_entry())
         self.delay_var.trace_add("write", self._delay_trace)
         tk.Label(row, text="运行中 4=提前5ms 5=推后5ms").pack(side="left")
+        tk.Label(row, text="最短按压(ms)").pack(side="left", padx=(12, 0))
+        self.min_hold_var = tk.StringVar(value=str(self.min_hold_ms))
+        ent = tk.Entry(row, textvariable=self.min_hold_var, width=5)
+        ent.pack(side="left", padx=4)
+        self.min_hold_var.trace_add("write", self._min_hold_trace)
 
         row = tk.Frame(f)
         row.pack(fill="x", pady=6)
@@ -233,6 +239,23 @@ class App:
             self.apply_delay_entry()
         finally:
             self._applying = False
+
+    def _min_hold_trace(self, *_args) -> None:
+        if self._applying:
+            return
+        self._applying = True
+        try:
+            self.apply_min_hold()
+        finally:
+            self._applying = False
+
+    def apply_min_hold(self) -> None:
+        try:
+            self.min_hold_ms = max(0, int(self.min_hold_var.get()))
+        except ValueError:
+            return
+        if self.engine:
+            self.engine.set_min_hold(self.min_hold_ms)
 
     def _on_ui_click(self, _event) -> None:
         """点击按钮/空白处取消输入状态；点击输入框不打断输入。"""
@@ -509,7 +532,8 @@ class App:
         keys = [k for _, k in self._sorted_columns()]
         self.engine = AutoplayEngine(
             self.matcher, self.game_hwnd, keys, rel_points,
-            self.delay_ms, on_log=self.status, on_stopped=self._on_engine_stopped,
+            self.delay_ms, min_hold_ms=self.min_hold_ms,
+            on_log=self.status, on_stopped=self._on_engine_stopped,
         )
         self.engine.start()
         self.run_btn.config(state="disabled")
@@ -571,6 +595,7 @@ class App:
             "delay_ms": self.delay_ms,
             "tolerance": self.matcher.tolerance,
             "key_color_count": key_color_count,
+            "min_hold_ms": self.min_hold_ms,
             "window_size": [self.root.winfo_width(), self.root.winfo_height()],
             "window_position": [self.root.winfo_x(), self.root.winfo_y()],
         }
@@ -624,6 +649,7 @@ class App:
         self.column_xs = [c["x"] for c in cfg["columns"]]
         self.keys = [c["key"] for c in cfg["columns"]]
         self.delay_ms = int(cfg["delay_ms"])
+        self.min_hold_ms = int(cfg.get("min_hold_ms", 20))
         self.matcher = ColorMatcher(tolerance=int(cfg["tolerance"]))
         for c in cfg.get("background_colors", []):
             self.matcher.add_background(tuple(c))
@@ -635,6 +661,7 @@ class App:
         self.col_count_var.set(str(cfg.get("column_count", len(self.column_xs) or 4)))
         self.key_count_var.set(str(cfg.get("key_color_count", 1)))
         self.delay_var.set(str(self.delay_ms))
+        self.min_hold_var.set(str(self.min_hold_ms))
         win_h = max(1, self.root.winfo_height())
         if self.judgement_px > 0:
             self.judgement_var.set(str(self.judgement_px))

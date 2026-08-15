@@ -21,6 +21,7 @@ DEFAULT_CONFIG: dict = {
     "delay_ms": 0,                     # 允许负数，运行时按 max(0, v) 处理
     "tolerance": 40,                   # 颜色欧氏距离容差 0~255
     "key_color_count": 1,              # 按键颜色数量
+    "min_hold_ms": 20,                 # 最短按压时长（ms）
     "window_size": [0, 0],             # 主窗口宽高；[0,0] 表示未设置
     "window_position": [-1, -1],       # 主窗口位置；[-1,-1] 表示未设置
 }
@@ -71,6 +72,11 @@ def normalize_config(raw: dict) -> dict:
         cfg["key_color_count"] = max(1, int(cfg.get("key_color_count", 1)))
     except (TypeError, ValueError):
         cfg["key_color_count"] = 1
+
+    try:
+        cfg["min_hold_ms"] = max(0, int(cfg.get("min_hold_ms", 20)))
+    except (TypeError, ValueError):
+        cfg["min_hold_ms"] = 20
 
     if not isinstance(cfg["key_string"], str):
         cfg["key_string"] = DEFAULT_CONFIG["key_string"]
