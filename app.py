@@ -574,6 +574,13 @@ class App:
             self.overlay.set_click_block(False)
             self._blocker.stop()
             self.dot.hide()
+        # 运行时读取最后一次保存的配置文件并应用
+        try:
+            cfg = load_config(self._config_path)
+            self._apply_cfg(cfg)
+            log.info("run: loaded last config %s", self._config_path)
+        except Exception:
+            pass
         errors = []
         if not self.game_hwnd:
             errors.append("请先选择游戏窗口")
