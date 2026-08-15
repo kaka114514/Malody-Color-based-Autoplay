@@ -18,7 +18,7 @@ VK_MAP = {
     "esc": 0x1B, "backspace": 0x08,
     "up": 0x26, "down": 0x28, "left": 0x25, "right": 0x27,
 }
-MIN_HOLD_MS = 40  # 短按最小按住时长，保证游戏能看到按键视觉反馈
+MIN_HOLD_MS = 20  # 短按最小按住时长，保证游戏能看到按键视觉反馈
 ctypes.windll.user32.MapVirtualKeyW.argtypes = [ctypes.c_uint, ctypes.c_uint]
 ctypes.windll.user32.MapVirtualKeyW.restype = ctypes.c_uint
 
