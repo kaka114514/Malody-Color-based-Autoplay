@@ -176,15 +176,17 @@ def test_cursor_dot_hit_test_transparent():
     dot.destroy()
 
 
-def test_cursor_dot_paints_green():
-    """绿点窗口中心绘制 2px 绿色。"""
+def test_cursor_dot_paints_green_with_transparent_center():
+    """绿点 5px、最中间像素透明。"""
     dot = CursorDot()
     dot.show_at(500, 500)
     time.sleep(0.2)
     hdc = user32.GetDC(dot.hwnd)
     try:
-        col = gdi32.GetPixel(hdc, 4, 4) & 0xFFFFFF
+        ring = gdi32.GetPixel(hdc, 1, 1) & 0xFFFFFF     # 绿点外圈
+        center = gdi32.GetPixel(hdc, 3, 3) & 0xFFFFFF   # 中心透明
     finally:
         user32.ReleaseDC(dot.hwnd, hdc)
-    assert col == 0x0000FF00, f"中心应为绿色，实际 0x{col:06X}"
+    assert ring == 0x0000FF00, f"外圈应为绿色，实际 0x{ring:06X}"
+    assert center == 0x00030201, f"中心应为透明色，实际 0x{center:06X}"
     dot.destroy()

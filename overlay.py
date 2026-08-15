@@ -30,6 +30,7 @@ SWP_NOACTIVATE = 0x0010
 SWP_SHOWWINDOW = 0x0040
 WM_NCHITTEST = 0x0084
 WM_LBUTTONDOWN = 0x0201
+WM_LBUTTONUP = 0x0202
 WM_ERASEBKGND = 0x0014
 WM_PAINT = 0x000F
 WM_CLOSE = 0x0010
@@ -52,8 +53,8 @@ LINE_WIDTH = 3
 NOTCH = 6
 RING_RADIUS = 5
 RING_WIDTH = 2
-DOT_SIZE = 8       # 鼠标绿点窗口尺寸
-DOT_PX = 2         # 绿点像素大小
+DOT_SIZE = 7       # 鼠标绿点窗口尺寸
+DOT_PX = 5         # 绿点像素大小
 
 
 class RECT(ctypes.Structure):
@@ -522,6 +523,14 @@ class CursorDot:
                 green_brush,
             )
             gdi32.DeleteObject(green_brush)
+            # 最中间像素透明，便于精确定位
+            hole_brush = gdi32.CreateSolidBrush(TRANSPARENT_KEY_BGR)
+            center = DOT_SIZE // 2
+            user32.FillRect(
+                hdc, ctypes.byref(RECT(center, center, center + 1, center + 1)),
+                hole_brush,
+            )
+            gdi32.DeleteObject(hole_brush)
         finally:
             user32.EndPaint(hwnd, ctypes.byref(ps))
 
@@ -537,6 +546,8 @@ def _wndproc(hwnd, msg, w_param, l_param):
         if ov is not None:
             ov._handle_click(hwnd, l_param)
         return 0
+    if msg == WM_LBUTTONUP:
+        return 0  # 采集模式消费抬起事件，确保点击完全不传给游戏
     if msg == WM_ERASEBKGND:
         return 1
     if msg == WM_PAINT:
