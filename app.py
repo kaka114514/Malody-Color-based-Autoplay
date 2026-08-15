@@ -209,6 +209,9 @@ class App:
         ]
         for lbl in self._hint_labels:
             lbl.pack(fill="x", **pad)
+        # 右下角来源信息
+        tk.Label(f, text="程序由B站@卡卡不想努力了(11397588)制作", anchor="e", fg="#999999").pack(fill="x", padx=8)
+        tk.Label(f, text="仅供学习参考，请勿上传成绩", anchor="e", fg="#999999").pack(fill="x", padx=8, pady=(0, 4))
         # 窗口宽度变化时，长文字自动换行
         self.root.bind("<Configure>", self._on_resize)
         self.root.minsize(360, 260)
