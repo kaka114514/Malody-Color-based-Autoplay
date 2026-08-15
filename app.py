@@ -323,6 +323,7 @@ class App:
                 elif kind == "engine_stopped":
                     self.engine = None
                     self._reset_buttons()
+                    self.overlay.set_watermark(False)
                     self.freq_var.set("检测速度：请运行")
                     self.status_var.set(payload)
         except queue.Empty:
@@ -564,6 +565,7 @@ class App:
             on_log=self.status, on_stopped=self._on_engine_stopped,
         )
         self.engine.start()
+        self.overlay.set_watermark(True)
         self.run_btn.config(state="disabled")
         self.pause_btn.config(state="normal")
         self._refresh_tracking()
@@ -573,6 +575,7 @@ class App:
         if self.engine:
             self.engine.stop()
             self.engine = None
+        self.overlay.set_watermark(False)
         self.freq_var.set("检测速度：请运行")
         self.run_btn.config(state="normal")
         self.pause_btn.config(state="disabled")

@@ -184,6 +184,7 @@ class Overlay:
         self._frame_color = YELLOW
         self._click_block = False
         self._click_callback = None
+        self._watermark = False
         self._create_window()
 
     @property
@@ -316,6 +317,12 @@ class Overlay:
         with self._lock:
             self._click_callback = callback
 
+    def set_watermark(self, visible: bool) -> None:
+        """运行时水印显示/隐藏。"""
+        with self._lock:
+            self._watermark = bool(visible)
+        self._redraw()
+
     def show(self) -> None:
         if self._hwnd:
             user32.ShowWindow(self._hwnd, 5)  # SW_SHOW
@@ -411,6 +418,19 @@ class Overlay:
                     gdi32.SelectObject(hdc, old_brush)
                     gdi32.SelectObject(hdc, old_pen)
                     gdi32.DeleteObject(pen)
+
+                # 运行时水印（红色，偏上居中）
+                if self._watermark:
+                    cy = int(height * 0.18)
+                    self._draw_text(hdc, "Autoplay", width, cy, 48)
+                    self._draw_text(
+                        hdc, "程序由B站@卡卡不想努力了(11397588)制作",
+                        width, cy + 62, 16,
+                    )
+                    self._draw_text(
+                        hdc, "仅供学习参考，请勿上传成绩",
+                        width, cy + 88, 16,
+                    )
             finally:
                 user32.EndPaint(hwnd, ctypes.byref(ps))
         except Exception:
@@ -420,6 +440,23 @@ class Overlay:
     def _line(hdc, x1, y1, x2, y2) -> None:
         gdi32.MoveToEx(hdc, int(x1), int(y1), None)
         gdi32.LineTo(hdc, int(x2), int(y2))
+
+    @staticmethod
+    def _draw_text(hdc, text: str, width: int, y: int, size: int) -> None:
+        """红色居中文本绘制（透明背景）。"""
+        font = gdi32.CreateFontW(
+            -size, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 4, 0, "Microsoft YaHei UI"
+        )
+        old = gdi32.SelectObject(hdc, font)
+        user32.SetTextColor(hdc, 0x000000FF)  # 红色
+        user32.SetBkMode(hdc, 1)  # TRANSPARENT
+        rect = RECT(0, y, width, y + size + 10)
+        user32.DrawTextW(
+            hdc, text, -1, ctypes.byref(rect),
+            0x0001 | 0x0020 | 0x0100,  # DT_CENTER | DT_SINGLELINE | DT_NOCLIP
+        )
+        gdi32.SelectObject(hdc, old)
+        gdi32.DeleteObject(font)
 
 
 class CursorDot:
