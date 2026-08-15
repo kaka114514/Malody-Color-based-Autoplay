@@ -100,7 +100,7 @@ class App:
         self.overlay.set_click_callback(self._on_overlay_click)
 
         self._build_ui()
-        self.freq_var.set("请运行")
+        self.freq_var.set("检测速度：请运行")
         self.root.update_idletasks()
         # 判定线高度按当前窗口实际高度换算像素显示，与输入值一致
         win_h = max(1, self.root.winfo_height())
@@ -311,7 +311,7 @@ class App:
                 elif kind == "engine_stopped":
                     self.engine = None
                     self._reset_buttons()
-                    self.freq_var.set("请运行")
+                    self.freq_var.set("检测速度：请运行")
                     self.status_var.set(payload)
         except queue.Empty:
             pass
@@ -561,7 +561,7 @@ class App:
         if self.engine:
             self.engine.stop()
             self.engine = None
-        self.freq_var.set("请运行")
+        self.freq_var.set("检测速度：请运行")
         self.run_btn.config(state="normal")
         self.pause_btn.config(state="disabled")
         self.overlay.show()
