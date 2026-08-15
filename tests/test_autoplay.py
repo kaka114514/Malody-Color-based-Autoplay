@@ -45,12 +45,13 @@ def test_delayed_press():
     assert s._sender.events == [("press", "D")]
 
 
-def test_cancel_pending_press():
+def test_delayed_press_after_note_passed():
+    """延迟期间音符已过：到期仍短按一次（press+release），不取消。"""
     s = make_scheduler(delay=50)
     s.update(0, True, 0)
-    s.update(0, False, 10)  # 未执行前变回背景，取消
+    s.update(0, False, 10)  # 未执行前变回背景
     s.tick(50)
-    assert s._sender.events == []
+    assert s._sender.events == [("press", "D"), ("release", "D")]
 
 
 def test_negative_delay_is_zero():

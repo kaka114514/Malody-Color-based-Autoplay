@@ -136,17 +136,20 @@ class KeyScheduler:
             if not self._pressed[i] and i not in self._pending_at:
                 self._pending_at[i] = now_ms + self._delay
         else:
-            self._pending_at.pop(i, None)  # 取消未执行的按下
             if self._pressed[i]:
                 self._pressed[i] = False
                 self._sender.release(self._keys[i])
+            # 不取消未执行的按下：延迟到期后仍触发（音符已过则短按）
 
     def tick(self, now_ms: float) -> None:
         for i in list(self._pending_at):
-            if self._pending_at[i] <= now_ms and self._desired[i] and not self._pressed[i]:
+            if self._pending_at[i] <= now_ms and not self._pressed[i]:
                 self._pending_at.pop(i)
-                self._pressed[i] = True
                 self._sender.press(self._keys[i])
+                if self._desired[i]:
+                    self._pressed[i] = True
+                else:
+                    self._sender.release(self._keys[i])  # 音符已过：短按
 
     def reset(self) -> None:
         self._pending_at.clear()
