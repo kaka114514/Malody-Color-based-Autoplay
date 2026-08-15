@@ -448,8 +448,8 @@ class Overlay:
             -size, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 4, 0, "Microsoft YaHei UI"
         )
         old = gdi32.SelectObject(hdc, font)
-        user32.SetTextColor(hdc, 0x000000FF)  # 红色
-        user32.SetBkMode(hdc, 1)  # TRANSPARENT
+        gdi32.SetTextColor(hdc, 0x000000FF)  # 红色
+        gdi32.SetBkMode(hdc, 1)  # TRANSPARENT
         rect = RECT(0, y, width, y + size + 10)
         user32.DrawTextW(
             hdc, text, -1, ctypes.byref(rect),
