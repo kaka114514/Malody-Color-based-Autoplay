@@ -158,6 +158,21 @@ gdi32.Ellipse.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int
 gdi32.Ellipse.restype = wintypes.BOOL
 gdi32.GetStockObject.argtypes = [ctypes.c_int]
 gdi32.GetStockObject.restype = wintypes.HGDIOBJ
+gdi32.SetTextColor.argtypes = [wintypes.HDC, ctypes.c_uint]
+gdi32.SetTextColor.restype = ctypes.c_uint
+gdi32.SetBkMode.argtypes = [wintypes.HDC, ctypes.c_int]
+gdi32.SetBkMode.restype = ctypes.c_int
+gdi32.CreateFontW.argtypes = [
+    ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+    ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+    ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.LPCWSTR,
+]
+gdi32.CreateFontW.restype = wintypes.HFONT
+user32.DrawTextW.argtypes = [
+    wintypes.HDC, wintypes.LPCWSTR, ctypes.c_int,
+    ctypes.POINTER(RECT), ctypes.c_uint,
+]
+user32.DrawTextW.restype = ctypes.c_int
 
 
 def _rgb(color: Tuple[int, int, int]) -> int:
