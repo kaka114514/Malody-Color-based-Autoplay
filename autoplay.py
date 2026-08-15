@@ -16,6 +16,7 @@ VK_MAP = {
     "esc": 0x1B, "backspace": 0x08,
     "up": 0x26, "down": 0x28, "left": 0x25, "right": 0x27,
 }
+MIN_HOLD_MS = 40  # 短按最小按住时长，保证游戏能看到按键视觉反馈
 ctypes.windll.user32.MapVirtualKeyW.argtypes = [ctypes.c_uint, ctypes.c_uint]
 ctypes.windll.user32.MapVirtualKeyW.restype = ctypes.c_uint
 
@@ -118,6 +119,7 @@ class KeyScheduler:
         self._desired: List[bool] = []
         self._pressed: List[bool] = []
         self._pending_at: Dict[int, float] = {}
+        self._release_at: Dict[int, float] = {}
 
     def set_delay(self, ms: int) -> None:
         self._delay = max(0, int(ms))
@@ -126,6 +128,7 @@ class KeyScheduler:
         self._desired = [False] * n
         self._pressed = [False] * n
         self._pending_at.clear()
+        self._release_at.clear()
 
     def update(self, i: int, desired: bool, now_ms: float) -> None:
         while len(self._desired) <= i:
@@ -149,10 +152,17 @@ class KeyScheduler:
                 if self._desired[i]:
                     self._pressed[i] = True
                 else:
-                    self._sender.release(self._keys[i])  # 音符已过：短按
+                    # 音符已过：短按，但至少按住 MIN_HOLD_MS 让游戏显示按键
+                    self._release_at[i] = now_ms + MIN_HOLD_MS
+        for i in list(self._release_at):
+            if self._release_at[i] <= now_ms:
+                self._release_at.pop(i)
+                if not self._pressed[i]:
+                    self._sender.release(self._keys[i])
 
     def reset(self) -> None:
         self._pending_at.clear()
+        self._release_at.clear()
         self._sender.release_all()
         self._pressed = [False] * len(self._pressed)
 

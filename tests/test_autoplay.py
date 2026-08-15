@@ -46,11 +46,15 @@ def test_delayed_press():
 
 
 def test_delayed_press_after_note_passed():
-    """延迟期间音符已过：到期仍短按一次（press+release），不取消。"""
+    """延迟期间音符已过：到期按下并至少按住 MIN_HOLD_MS 再松开。"""
     s = make_scheduler(delay=50)
     s.update(0, True, 0)
     s.update(0, False, 10)  # 未执行前变回背景
     s.tick(50)
+    assert s._sender.events == [("press", "D")]
+    s.tick(89)
+    assert s._sender.events == [("press", "D")]  # 未到最小按住时长
+    s.tick(90)
     assert s._sender.events == [("press", "D"), ("release", "D")]
 
 
