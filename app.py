@@ -204,8 +204,8 @@ class App:
         self._status_label = tk.Label(f, textvariable=self.status_var, anchor="w", justify="left")
         self._status_label.pack(fill="x", **pad)
         self._hint_labels = [
-        tk.Label(f, text="6 切换覆盖层显示 | 7 黄键/蓝键(采集模式)切换", anchor="w", justify="left", fg="#666666"),
-        tk.Label(f, text="8 运行 | 9 暂停", anchor="w", justify="left", fg="#666666"),
+        tk.Label(f, text="6 黄键/蓝键(采集模式)切换", anchor="w", justify="left", fg="#666666"),
+        tk.Label(f, text="7 运行 | 8 暂停", anchor="w", justify="left", fg="#666666"),
         ]
         for lbl in self._hint_labels:
             lbl.pack(fill="x", **pad)
@@ -738,18 +738,6 @@ class App:
             self.nudge_delay(-5 if key == "4" else 5)
             return
         if key == "6":
-            # 切换覆盖层显示状态
-            self._overlay_visible = not self._overlay_visible
-            if self._overlay_visible:
-                self._refresh_tracking()
-                if self.game_hwnd:
-                    wu.set_foreground(self.game_hwnd)
-                self.status("覆盖层已显示")
-            else:
-                self.overlay.hide()
-                self.status("覆盖层已隐藏")
-            return
-        if key == "7":
             # 切换黄框/蓝框采集模式
             self._frame_blue = not self._frame_blue
             self.overlay.set_frame_color(BLUE if self._frame_blue else YELLOW)
@@ -757,16 +745,16 @@ class App:
             if self._frame_blue:
                 self._blocker.start()
                 self.dot.show_at(*MouseReader.cursor_pos())
-                self.status("蓝框采集模式：点击游戏抓取坐标/颜色（再按7返回）")
+                self.status("蓝框采集模式：点击游戏抓取坐标/颜色（再按6返回）")
             else:
                 self._blocker.stop()
                 self.dot.hide()
                 self.status("黄框正常模式：点击穿透")
             return
-        if key == "8":
+        if key == "7":
             self.on_run()
             return
-        if key == "9":
+        if key == "8":
             self.on_pause()
             return
         if self.mode == "judgement":
