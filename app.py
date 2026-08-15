@@ -263,7 +263,7 @@ class App:
                 kind, payload = self._msg_queue.get_nowait()
                 if kind == "status":
                     if payload.startswith("freq:"):
-                        self.freq_var.set(payload[5:].strip())
+                        self.freq_var.set(f"检测速度：{payload[5:].strip()}")
                     elif payload.startswith("state:"):
                         self.status_var.set(payload[6:].strip())
                     else:
