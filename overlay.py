@@ -49,6 +49,7 @@ BLUE = (59, 130, 246)
 SELECTED_BLUE = (0, 208, 255)
 GREEN = (0, 255, 0)
 FRAME_WIDTH = 8
+FRAME_INSET = 2    # 边框向内偏移
 LINE_WIDTH = 3
 NOTCH = 6
 RING_RADIUS = 5
@@ -369,7 +370,7 @@ class Overlay:
                 # 边框（8px，黄或蓝）
                 pen = gdi32.CreatePen(PS_SOLID, FRAME_WIDTH, _rgb(self._frame_color))
                 old = gdi32.SelectObject(hdc, pen)
-                half = FRAME_WIDTH // 2
+                half = FRAME_WIDTH // 2 + FRAME_INSET
                 self._line(hdc, 0, half, width, half)
                 self._line(hdc, 0, height - half, width, height - half)
                 self._line(hdc, half, 0, half, height)
