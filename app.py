@@ -17,7 +17,7 @@ from capture import grab_rect, sample_pixel
 from color_matcher import ColorMatcher
 from config import load_config, save_config
 from icon_utils import extract_exe_icon
-from input_hook import GlobalKeyHook, MouseReader
+from input_hook import GlobalKeyHook, MouseBlocker, MouseReader
 from overlay import BLUE, YELLOW, CursorDot, Overlay
 
 
@@ -100,6 +100,7 @@ class App:
         self.overlay.set_click_callback(self._on_overlay_click)
         self.dot = CursorDot()
         self.dot.hide()
+        self._blocker = MouseBlocker(self._in_block_region, self._on_overlay_click)
 
         self._build_ui()
         self.freq_var.set("检测速度：请运行")
@@ -287,6 +288,9 @@ class App:
 
     def _on_overlay_click(self, sx: int, sy: int) -> None:
         """蓝框采集模式：点击被覆盖层捕获时，读取坐标与颜色。"""
+        self._handle_collect_click(sx, sy)
+
+    def _handle_collect_click(self, sx: int, sy: int) -> None:
         try:
             img = grab_rect((sx, sy, sx + 1, sy + 1))
             color = sample_pixel(img, 0, 0)
@@ -294,6 +298,12 @@ class App:
             self.status("读取颜色失败")
             return
         self.status(f"坐标 ({sx}, {sy}) 颜色值 {tuple(color)}")
+
+    def _in_block_region(self, x: int, y: int) -> bool:
+        if not self.game_rect:
+            return False
+        left, top, right, bottom = self.game_rect
+        return left <= x < right and top <= y < bottom
 
     def _tick_messages(self) -> None:
         try:
@@ -732,9 +742,11 @@ class App:
             self.overlay.set_frame_color(BLUE if self._frame_blue else YELLOW)
             self.overlay.set_click_block(self._frame_blue)
             if self._frame_blue:
+                self._blocker.start()
                 self.dot.show_at(*MouseReader.cursor_pos())
                 self.status("蓝框采集模式：点击游戏抓取坐标/颜色（再按7返回）")
             else:
+                self._blocker.stop()
                 self.dot.hide()
                 self.status("黄框正常模式：点击穿透")
             return
@@ -843,6 +855,7 @@ class App:
         if self.engine:
             self.engine.stop()
         self._hook.stop()
+        self._blocker.stop()
         self.overlay.destroy()
         self.dot.destroy()
         try:
