@@ -10,3 +10,4 @@ config.json
 *.log
 configs/
 !app_icon.png
+MalodyAutoplay.exe
