@@ -241,7 +241,7 @@ class AutoplayEngine:
             states = [self._matcher.classify(c) for c in colors]
             if states != last_states:
                 last_states = list(states)
-                labels = {"bg": "背景", "key": "按键", "unknown": "未知"}
+                labels = {"background": "背景", "key": "按键", "unknown": "未知"}
                 detail = " ".join(
                     f"{i + 1}({self._keys[i]}):{labels.get(cls, cls)}"
                     for i, cls in enumerate(states)
