@@ -16,7 +16,7 @@ from autoplay import AutoplayEngine
 from capture import grab_rect, sample_pixel
 from color_matcher import ColorMatcher
 from config import load_config, save_config
-from icon_utils import icon_to_hicon, make_app_icon
+from icon_utils import icon_to_hicon
 from input_hook import GlobalKeyHook, MouseBlocker, MouseReader
 from overlay import BLUE, YELLOW, CursorDot, Overlay
 
@@ -210,13 +210,13 @@ class App:
 
     def _set_window_icon(self, retries: int = 6) -> None:
         """窗口显示后设置 Malody 图标（任务栏生效）。"""
-        if not MALODY_EXE.exists():
-            log.info("icon: malody exe not found")
+        icon_path = BASE_DIR / "app_icon.png"
+        if not icon_path.exists():
+            log.info("icon: app_icon.png not found")
             return
         try:
-            img = make_app_icon(str(MALODY_EXE), 32)
-            if img is None:
-                return
+            from PIL import Image
+            img = Image.open(icon_path)
             hicon = icon_to_hicon(img)
             if hicon is None:
                 return
