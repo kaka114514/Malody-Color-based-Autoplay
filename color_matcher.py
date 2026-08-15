@@ -6,18 +6,20 @@ from typing import List, Tuple
 RGB = Tuple[int, int, int]
 
 
-def _distance(a: RGB, b: RGB) -> float:
-    return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+def _distance_sq(a: RGB, b: RGB) -> float:
+    return sum((x - y) ** 2 for x, y in zip(a, b))
 
 
 class ColorMatcher:
     def __init__(self, tolerance: int = 40):
         self._tolerance = max(0, int(tolerance))
+        self._tolerance_sq = self._tolerance * self._tolerance
         self._backgrounds: List[RGB] = []
         self._keys: List[RGB] = []
 
     def set_tolerance(self, tol: int) -> None:
         self._tolerance = max(0, int(tol))
+        self._tolerance_sq = self._tolerance * self._tolerance
 
     def add_background(self, rgb: RGB) -> None:
         rgb = tuple(rgb)
@@ -44,10 +46,10 @@ class ColorMatcher:
         return False
 
     def is_background(self, rgb: RGB) -> bool:
-        return any(_distance(rgb, c) <= self._tolerance for c in self._backgrounds)
+        return any(_distance_sq(rgb, c) <= self._tolerance_sq for c in self._backgrounds)
 
     def is_key(self, rgb: RGB) -> bool:
-        return any(_distance(rgb, c) <= self._tolerance for c in self._keys)
+        return any(_distance_sq(rgb, c) <= self._tolerance_sq for c in self._keys)
 
     def classify(self, rgb: RGB) -> str:
         """优先级：按键色 > 背景色 > unknown。"""
