@@ -528,6 +528,13 @@ class App:
         return [(x, k) for x, k in pairs if k]
 
     def on_run(self) -> None:
+        # 运行前强制退出采集模式，避免鼠标钩子拦截游戏操作
+        if self._frame_blue:
+            self._frame_blue = False
+            self.overlay.set_frame_color(YELLOW)
+            self.overlay.set_click_block(False)
+            self._blocker.stop()
+            self.dot.hide()
         errors = []
         if not self.game_hwnd:
             errors.append("请先选择游戏窗口")
