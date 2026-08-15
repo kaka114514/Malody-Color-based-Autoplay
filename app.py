@@ -499,7 +499,12 @@ class App:
             messagebox.showwarning("提示", "\n".join(errors))
             return
 
-        wu.set_foreground(self.game_hwnd)
+        fg_ok = wu.set_foreground(self.game_hwnd)
+        log.info("run: set_foreground=%s fg=%s game=%s",
+                 fg_ok, win32gui.GetWindowText(win32gui.GetForegroundWindow()), self.game_hwnd)
+        if not fg_ok:
+            self.status("警告：未能自动置前游戏窗口，请点击一下游戏窗口后按 9 运行")
+            return
         rel_points = [(x, self.rel_y) for x, _ in self._sorted_columns()]
         keys = [k for _, k in self._sorted_columns()]
         self.engine = AutoplayEngine(

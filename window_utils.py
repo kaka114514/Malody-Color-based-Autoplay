@@ -34,10 +34,13 @@ def get_window_rect(hwnd: int) -> Rect:
 
 
 def set_foreground(hwnd: int) -> bool:
-    """将窗口置为前台。"""
+    """将窗口置为前台；返回是否成功。"""
     try:
+        # 解锁前台锁：模拟一次 ALT 键释放（Windows 常见技巧）
+        ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)  # ALT down
+        ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)  # ALT up
         win32gui.SetForegroundWindow(hwnd)
-        return True
+        return win32gui.GetForegroundWindow() == hwnd
     except win32gui.error:
         return False
 
