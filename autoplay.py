@@ -16,6 +16,8 @@ VK_MAP = {
     "esc": 0x1B, "backspace": 0x08,
     "up": 0x26, "down": 0x28, "left": 0x25, "right": 0x27,
 }
+ctypes.windll.user32.MapVirtualKeyW.argtypes = [ctypes.c_uint, ctypes.c_uint]
+ctypes.windll.user32.MapVirtualKeyW.restype = ctypes.c_uint
 
 
 def _vk_for(key: str) -> int:
@@ -31,6 +33,7 @@ class KeySender:
     """通过 SendInput 注入键盘事件。"""
 
     KEYEVENTF_KEYUP = 0x0002
+    KEYEVENTF_SCANCODE = 0x0008
     INPUT_KEYBOARD = 1
 
     def __init__(self) -> None:
@@ -56,7 +59,9 @@ class KeySender:
 
     def _send(self, key: str, down: bool) -> None:
         vk = _vk_for(key)
+        scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)  # VK -> 扫描码
         flags = 0 if down else self.KEYEVENTF_KEYUP
+        flags |= self.KEYEVENTF_SCANCODE
 
         class MOUSEINPUT(ctypes.Structure):
             _fields_ = [
@@ -99,7 +104,7 @@ class KeySender:
             ]
 
         inp = INPUT(self.INPUT_KEYBOARD)
-        inp.ki = KEYBDINPUT(vk, 0, flags, 0, 0)
+        inp.ki = KEYBDINPUT(0, scan, flags, 0, 0)
         ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
 
 
