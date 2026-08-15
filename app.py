@@ -377,6 +377,7 @@ class App:
             max_y = max(0.0, (h - 1) / h)
             self.rel_y = max(0.0, min(max_y, self.judgement_px / h))
             self.judgement_var.set(str(self.judgement_px))
+        self.overlay.set_credit(True)  # 选择窗口后常显来源小字
         self._refresh_tracking()
         self.mode = "idle"
         log.info("after select: mode=%s game_hwnd=%s", self.mode, self.game_hwnd)

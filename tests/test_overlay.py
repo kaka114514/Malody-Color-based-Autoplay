@@ -222,3 +222,23 @@ def test_overlay_watermark_draws_red_text():
         user32.ReleaseDC(ov.hwnd, hdc)
     assert red > 10, f"水印红色像素过少: {red}"
     ov.destroy()
+
+
+def test_overlay_credit_draws_red_text():
+    """来源小字（选择窗口后常显）：窗口中部出现红色文字像素。"""
+    ov = _make_overlay()
+    ov.set_credit(True)
+    time.sleep(0.2)
+    hdc = user32.GetDC(ov.hwnd)
+    red = 0
+    try:
+        for y in range(90, 190, 2):
+            for x in range(0, 500, 2):
+                col = gdi32.GetPixel(hdc, x, y) & 0xFFFFFF
+                r = col & 0xFF
+                if r > 180 and (col >> 8) & 0xFF < 100 and (col >> 16) & 0xFF < 100:
+                    red += 1
+    finally:
+        user32.ReleaseDC(ov.hwnd, hdc)
+    assert red > 10, f"来源小字红色像素过少: {red}"
+    ov.destroy()

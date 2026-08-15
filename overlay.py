@@ -185,6 +185,7 @@ class Overlay:
         self._click_block = False
         self._click_callback = None
         self._watermark = False
+        self._show_credit = False
         self._create_window()
 
     @property
@@ -318,9 +319,15 @@ class Overlay:
             self._click_callback = callback
 
     def set_watermark(self, visible: bool) -> None:
-        """运行时水印显示/隐藏。"""
+        """Autoplay 大字（运行时）显示/隐藏。"""
         with self._lock:
             self._watermark = bool(visible)
+        self._redraw()
+
+    def set_credit(self, visible: bool) -> None:
+        """来源小字（选择窗口后常显）显示/隐藏。"""
+        with self._lock:
+            self._show_credit = bool(visible)
         self._redraw()
 
     def show(self) -> None:
@@ -419,18 +426,20 @@ class Overlay:
                     gdi32.SelectObject(hdc, old_pen)
                     gdi32.DeleteObject(pen)
 
-                # 运行时水印（红色，偏上居中）
-                if self._watermark:
-                    cy = int(height * 0.05)
-                    self._draw_text(hdc, "Autoplay", width, cy, 56)
+                # 来源小字（选择窗口后常显）
+                if self._show_credit:
+                    cy = int(height * 0.25)
                     self._draw_text(
                         hdc, "程序由B站@卡卡不想努力了(11397588)制作",
-                        width, cy + 70, 20,
+                        width, cy, 24,
                     )
                     self._draw_text(
                         hdc, "仅供学习参考，请勿上传成绩",
-                        width, cy + 100, 20,
+                        width, cy + 34, 24,
                     )
+                # Autoplay 大字（仅运行时）
+                if self._watermark:
+                    self._draw_text(hdc, "Autoplay", width, int(height * 0.05), 56)
             finally:
                 user32.EndPaint(hwnd, ctypes.byref(ps))
         except Exception:
