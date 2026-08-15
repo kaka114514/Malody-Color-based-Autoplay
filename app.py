@@ -4,6 +4,7 @@ import ctypes
 import logging
 import queue
 import shutil
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -21,8 +22,16 @@ from input_hook import GlobalKeyHook, MouseBlocker, MouseReader
 from overlay import BLUE, YELLOW, CursorDot, Overlay
 
 
-BASE_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    # PyInstaller 打包：程序目录 = exe 所在文件夹；资源在临时解压目录
+    BASE_DIR = Path(sys.executable).resolve().parent
+    RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", BASE_DIR))
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+    RESOURCE_DIR = BASE_DIR
+
 MALODY_EXE = Path(r"D:\App\Game\Malody\malody.exe")
+APP_ICON = RESOURCE_DIR / "app_icon.png"
 CONFIG_DIR = BASE_DIR / "configs"
 CONFIG_PATH = CONFIG_DIR / "config.json"
 LAST_CONFIG_FILE = CONFIG_DIR / ".last"
@@ -210,7 +219,7 @@ class App:
 
     def _set_window_icon(self, retries: int = 10) -> None:
         """窗口显示后设置 Malody 图标（任务栏生效）。"""
-        icon_path = BASE_DIR / "app_icon.png"
+        icon_path = APP_ICON
         if not icon_path.exists():
             log.info("icon: app_icon.png not found")
             return
