@@ -421,15 +421,15 @@ class Overlay:
 
                 # 运行时水印（红色，偏上居中）
                 if self._watermark:
-                    cy = int(height * 0.14)
-                    self._draw_text(hdc, "Autoplay", width, cy, 48)
+                    cy = int(height * 0.05)
+                    self._draw_text(hdc, "Autoplay", width, cy, 56)
                     self._draw_text(
                         hdc, "程序由B站@卡卡不想努力了(11397588)制作",
-                        width, cy + 64, 18,
+                        width, cy + 70, 20,
                     )
                     self._draw_text(
                         hdc, "仅供学习参考，请勿上传成绩",
-                        width, cy + 92, 18,
+                        width, cy + 100, 20,
                     )
             finally:
                 user32.EndPaint(hwnd, ctypes.byref(ps))
