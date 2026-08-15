@@ -2,7 +2,8 @@ import time
 
 import pytest
 
-from autoplay import KeyScheduler, _vk_for
+from autoplay import KeyScheduler, _vk_for, classify_region
+from color_matcher import ColorMatcher
 
 
 class FakeSender:
@@ -89,3 +90,28 @@ def test_vk_for():
     assert _vk_for("shift") == 0x10
     with pytest.raises(ValueError):
         _vk_for("__invalid__")
+
+
+def _matcher():
+    m = ColorMatcher(tolerance=10)
+    m.add_background((0, 0, 0))
+    m.add_key((255, 255, 255))
+    return m
+
+
+def test_classify_region_all_background():
+    assert classify_region(_matcher(), [(0, 0, 0)] * 9) == "background"
+
+
+def test_classify_region_all_key():
+    assert classify_region(_matcher(), [(255, 255, 255)] * 9) == "key"
+
+
+def test_classify_region_gap_detected():
+    """密集音符间隙：区域里出现 1 个背景像素即视为背景，用于捕捉间隙。"""
+    colors = [(255, 255, 255)] * 8 + [(0, 0, 0)]
+    assert classify_region(_matcher(), colors) == "background"
+
+
+def test_classify_region_unknown():
+    assert classify_region(_matcher(), [(100, 100, 100)] * 9) == "unknown"

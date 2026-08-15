@@ -6,9 +6,11 @@ import time
 from typing import Callable, Dict, List, Optional, Tuple
 
 import window_utils as wu
-from capture import grab_rect, make_bbox, sample_points
+from capture import grab_rect, make_bbox, sample_pixel
 from color_matcher import ColorMatcher
 
+
+RGB = Tuple[int, int, int]
 
 VK_MAP = {
     "space": 0x20, "enter": 0x0D, "tab": 0x09,
@@ -17,6 +19,8 @@ VK_MAP = {
     "up": 0x26, "down": 0x28, "left": 0x25, "right": 0x27,
 }
 MIN_HOLD_MS = 40  # 短按最小按住时长，保证游戏能看到按键视觉反馈
+AREA_HALF_W = 2   # 检测区域半宽（5px）
+AREA_HALF_H = 1   # 检测区域半高（3px）
 ctypes.windll.user32.MapVirtualKeyW.argtypes = [ctypes.c_uint, ctypes.c_uint]
 ctypes.windll.user32.MapVirtualKeyW.restype = ctypes.c_uint
 
@@ -28,6 +32,17 @@ def _vk_for(key: str) -> int:
     if len(k) == 1 and k.isprintable():
         return ord(k.upper())
     raise ValueError(f"无法识别按键: {key}")
+
+
+def classify_region(matcher, colors) -> str:
+    """按区域颜色判断：任一背景色即背景（捕捉音符间隙），否则任一按键色即按键。"""
+    has_bg = any(matcher.is_background(c) for c in colors)
+    has_key = any(matcher.is_key(c) for c in colors)
+    if has_bg:
+        return "background"
+    if has_key:
+        return "key"
+    return "unknown"
 
 
 class KeySender:
@@ -234,7 +249,7 @@ class AutoplayEngine:
                 )
                 for x, y in self._rel_points
             ]
-            bbox = make_bbox(screen_points, pad=2)
+            bbox = make_bbox(screen_points, pad=3)
             try:
                 img = grab_rect(bbox)
             except Exception:
@@ -243,11 +258,13 @@ class AutoplayEngine:
                 continue
 
             local_points = [(p[0] - bbox[0], p[1] - bbox[1]) for p in screen_points]
-            colors = sample_points(img, local_points)
             now_ms = time.perf_counter() * 1000.0
 
-            for i, color in enumerate(colors):
-                cls = self._matcher.classify(color)
+            states = []
+            for i, (lx, ly) in enumerate(local_points):
+                region = self._sample_region(img, lx, ly)
+                cls = classify_region(self._matcher, region)
+                states.append(cls)
                 if cls == "key":
                     self._scheduler.update(i, True, now_ms)
                 elif cls == "background":
@@ -256,7 +273,6 @@ class AutoplayEngine:
             self._scheduler.tick(now_ms)
 
             # 检测点分类变化时立即上报（状态栏即时反馈）
-            states = [self._matcher.classify(c) for c in colors]
             if states != last_states:
                 last_states = list(states)
                 labels = {"background": "背景", "key": "按键", "unknown": "未知"}
@@ -273,3 +289,11 @@ class AutoplayEngine:
                 self._on_log(f"freq: {fps:.0f} 次/秒")
                 frames = 0
                 last_log = now_real
+
+    def _sample_region(self, img, cx: int, cy: int) -> List[RGB]:
+        """采样检测点 5x3 区域的颜色。"""
+        return [
+            sample_pixel(img, cx + dx, cy + dy)
+            for dy in (-AREA_HALF_H, 0, AREA_HALF_H)
+            for dx in (-AREA_HALF_W, 0, AREA_HALF_W)
+        ]
