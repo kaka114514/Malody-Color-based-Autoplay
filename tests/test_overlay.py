@@ -107,6 +107,18 @@ def test_overlay_blue_block_mode():
     ov.destroy()
 
 
+def test_overlay_click_block_toggles_transparent_style():
+    """蓝框模式必须移除 WS_EX_TRANSPARENT，否则点击会穿透到游戏。"""
+    ov = _make_overlay()
+    ov.set_click_block(False)
+    style = win32gui.GetWindowLong(ov.hwnd, win32con.GWL_EXSTYLE)
+    assert style & win32con.WS_EX_TRANSPARENT, "黄框模式应保留点击穿透样式"
+    ov.set_click_block(True)
+    style = win32gui.GetWindowLong(ov.hwnd, win32con.GWL_EXSTYLE)
+    assert not (style & win32con.WS_EX_TRANSPARENT), "蓝框模式应移除穿透样式以拦截点击"
+    ov.destroy()
+
+
 def test_overlay_frame_color_toggle_back():
     """切回黄框后边框恢复黄色。"""
     ov = _make_overlay()

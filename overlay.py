@@ -295,9 +295,20 @@ class Overlay:
         self._redraw()
 
     def set_click_block(self, block: bool) -> None:
-        """True：拦截点击（采集模式）；False：点击穿透。"""
+        """True：拦截点击（采集模式）；False：点击穿透。
+
+        同时切换 WS_EX_TRANSPARENT：该样式会让系统在命中测试时跳过窗口，
+        即使 WM_NCHITTEST 返回 HTCLIENT 也会穿透到下层窗口。
+        """
         with self._lock:
             self._click_block = bool(block)
+        if self._hwnd:
+            style = win32gui.GetWindowLong(self._hwnd, win32con.GWL_EXSTYLE)
+            if block:
+                style &= ~win32con.WS_EX_TRANSPARENT
+            else:
+                style |= win32con.WS_EX_TRANSPARENT
+            win32gui.SetWindowLong(self._hwnd, win32con.GWL_EXSTYLE, style)
 
     def set_click_callback(self, callback) -> None:
         """点击被拦截时回调 (screen_x, screen_y)。"""
