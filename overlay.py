@@ -303,12 +303,12 @@ class Overlay:
         with self._lock:
             self._click_block = bool(block)
         if self._hwnd:
-            style = win32gui.GetWindowLong(self._hwnd, win32con.GWL_EXSTYLE)
+            style = user32.GetWindowLongW(self._hwnd, -20)  # GWL_EXSTYLE
             if block:
-                style &= ~win32con.WS_EX_TRANSPARENT
+                style &= ~0x20  # 移除 WS_EX_TRANSPARENT
             else:
-                style |= win32con.WS_EX_TRANSPARENT
-            win32gui.SetWindowLong(self._hwnd, win32con.GWL_EXSTYLE, style)
+                style |= 0x20  # 恢复 WS_EX_TRANSPARENT
+            user32.SetWindowLongW(self._hwnd, -20, style)
 
     def set_click_callback(self, callback) -> None:
         """点击被拦截时回调 (screen_x, screen_y)。"""
