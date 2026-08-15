@@ -371,11 +371,12 @@ class Overlay:
                 pen = gdi32.CreatePen(PS_SOLID, FRAME_WIDTH, _rgb(self._frame_color))
                 old = gdi32.SelectObject(hdc, pen)
                 half = FRAME_WIDTH // 2 + FRAME_INSET
+                side_half = half + 2  # 左右下再向内 2px
                 # 四条线在角部收于交点处，避免四角凸出
-                self._line(hdc, half, half, width - half, half)
-                self._line(hdc, half, height - half, width - half, height - half)
-                self._line(hdc, half, half, half, height - half)
-                self._line(hdc, width - half, half, width - half, height - half)
+                self._line(hdc, side_half, half, width - side_half, half)
+                self._line(hdc, side_half, height - side_half, width - side_half, height - side_half)
+                self._line(hdc, side_half, half, side_half, height - side_half)
+                self._line(hdc, width - side_half, half, width - side_half, height - side_half)
                 gdi32.SelectObject(hdc, old)
                 gdi32.DeleteObject(pen)
 

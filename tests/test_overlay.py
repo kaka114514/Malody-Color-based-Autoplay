@@ -67,9 +67,9 @@ def test_overlay_frame_renders_yellow():
     try:
         # 窗口客户区 (0,0,500,400) 内四边采样（黄框 10px）
         top = gdi32.GetPixel(hdc, 250, 6) & 0xFFFFFF
-        left = gdi32.GetPixel(hdc, 6, 100) & 0xFFFFFF
-        right = gdi32.GetPixel(hdc, 494, 100) & 0xFFFFFF
-        bottom = gdi32.GetPixel(hdc, 250, 394) & 0xFFFFFF
+        left = gdi32.GetPixel(hdc, 8, 100) & 0xFFFFFF
+        right = gdi32.GetPixel(hdc, 492, 100) & 0xFFFFFF
+        bottom = gdi32.GetPixel(hdc, 250, 392) & 0xFFFFFF
     finally:
         user32.ReleaseDC(ov.hwnd, hdc)
     yellow_bgr = 0x00D8FF  # RGB(255,216,0)
