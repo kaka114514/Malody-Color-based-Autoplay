@@ -1,5 +1,6 @@
 """主控制界面：布局、模式状态机、线程协调。"""
 
+import ctypes
 import logging
 import queue
 import shutil
@@ -9,14 +10,13 @@ from tkinter import filedialog, messagebox
 from typing import List, Optional, Tuple
 
 import win32gui
-from PIL import ImageTk
 
 import window_utils as wu
 from autoplay import AutoplayEngine
 from capture import grab_rect, sample_pixel
 from color_matcher import ColorMatcher
 from config import load_config, save_config
-from icon_utils import extract_exe_icon
+from icon_utils import icon_to_hicon, make_app_icon
 from input_hook import GlobalKeyHook, MouseBlocker, MouseReader
 from overlay import BLUE, YELLOW, CursorDot, Overlay
 
@@ -55,15 +55,7 @@ class App:
         self.root = root
         self.root.title("Malody Color-based Autoplay")
         self.root.resizable(True, True)
-        # 使用 Malody 游戏图标作为程序图标
-        if MALODY_EXE.exists():
-            try:
-                icon_img = extract_exe_icon(str(MALODY_EXE), 32)
-                if icon_img is not None:
-                    self._icon_photo = ImageTk.PhotoImage(icon_img)
-                    self.root.iconphoto(True, self._icon_photo)
-            except Exception:
-                pass
+        self.root.after(200, self._set_window_icon)
 
         self._config_path = resolve_config_path()
         self.cfg = load_config(self._config_path)
@@ -215,6 +207,39 @@ class App:
         # 窗口宽度变化时，长文字自动换行
         self.root.bind("<Configure>", self._on_resize)
         self.root.minsize(360, 260)
+
+    def _set_window_icon(self, retries: int = 6) -> None:
+        """窗口显示后设置 Malody 图标（任务栏生效）。"""
+        if not MALODY_EXE.exists():
+            log.info("icon: malody exe not found")
+            return
+        try:
+            img = make_app_icon(str(MALODY_EXE), 32)
+            if img is None:
+                return
+            hicon = icon_to_hicon(img)
+            if hicon is None:
+                return
+            hwnd = int(self.root.winfo_id())
+            # Tk 的 winfo_id 是包装子窗口，任务栏使用真正的顶层窗口
+            get_ancestor = ctypes.windll.user32.GetAncestor
+            get_ancestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+            get_ancestor.restype = ctypes.c_void_p
+            top = get_ancestor(hwnd, 2)  # GA_ROOT
+            if top:
+                hwnd = int(top)
+            send = ctypes.windll.user32.SendMessageW
+            send.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+            send.restype = ctypes.c_void_p
+            send(hwnd, 0x0080, 1, hicon)  # WM_SETICON ICON_BIG
+            send(hwnd, 0x0080, 0, hicon)  # WM_SETICON ICON_SMALL
+            self._hicon = hicon
+            log.info("icon: set on hwnd=%s (retries left=%s)", hwnd, retries)
+        except Exception as exc:
+            log.exception("icon: set failed: %s", exc)
+        # Tk 主窗口显示过程中可能重建，重试几次确保最终窗口也设置上
+        if retries > 1:
+            self.root.after(500, lambda: self._set_window_icon(retries - 1))
 
     def _on_resize(self, event) -> None:
         """状态栏与热键提示随窗口宽度自动换行。"""
