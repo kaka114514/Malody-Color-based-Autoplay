@@ -428,7 +428,7 @@ class Overlay:
 
                 # 来源小字（选择窗口后常显）
                 if self._show_credit:
-                    cy = int(height * 0.07)
+                    cy = int(height * 0.05) + 56 + 20  # Autoplay 下端下方 20px
                     self._draw_text(
                         hdc, "程序由B站@卡卡不想努力了(11397588)制作",
                         width, cy, 24,
