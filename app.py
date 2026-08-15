@@ -163,9 +163,7 @@ class App:
 
         row = tk.Frame(f)
         row.pack(fill="x", **pad)
-        tk.Label(row, text="按键颜色数量").pack(side="left")
-        self.key_count_var = tk.StringVar(value=str(self.cfg.get("key_color_count", 1)))
-        tk.Entry(row, textvariable=self.key_count_var, width=4).pack(side="left", padx=4)
+        tk.Label(row, text="按键颜色").pack(side="left")
         tk.Button(row, text="吸色(按1激活,左键取色)", command=self.on_eyedrop_key).pack(side="left", padx=4)
         self.key_swatch_frame = tk.Frame(row)
         self.key_swatch_frame.pack(side="left", padx=4)
@@ -487,13 +485,6 @@ class App:
         if self.mode == "eyedrop_bg":
             self.matcher.add_background(color)
         else:
-            try:
-                limit = max(1, int(self.key_count_var.get()))
-            except ValueError:
-                limit = 1
-            if len(self.matcher.key_colors) >= limit:
-                self.status(f"按键颜色已达上限 {limit}，可点击色块删除")
-                return
             self.matcher.add_key(color)
         self.eyedrop_active = False
         self._refresh_swatches()
@@ -589,10 +580,6 @@ class App:
             col_count = max(1, int(self.col_count_var.get()))
         except ValueError:
             col_count = len(columns)
-        try:
-            key_color_count = max(1, int(self.key_count_var.get()))
-        except ValueError:
-            key_color_count = 1
         # 判定线像素：优先用当前像素值；否则按游戏窗口高度换算
         if self.judgement_px > 0:
             judgement_px = self.judgement_px
@@ -611,7 +598,6 @@ class App:
             "key_colors": [list(c) for c in self.matcher.key_colors],
             "delay_ms": self.delay_ms,
             "tolerance": self.matcher.tolerance,
-            "key_color_count": key_color_count,
             "min_hold_ms": self.min_hold_ms,
             "window_size": [self.root.winfo_width(), self.root.winfo_height()],
             "window_position": [self.root.winfo_x(), self.root.winfo_y()],
@@ -676,7 +662,6 @@ class App:
         # UI 回显
         self.key_string_var.set(str(cfg.get("key_string", "")))
         self.col_count_var.set(str(cfg.get("column_count", len(self.column_xs) or 4)))
-        self.key_count_var.set(str(cfg.get("key_color_count", 1)))
         self.delay_var.set(str(self.delay_ms))
         self.min_hold_var.set(str(self.min_hold_ms))
         win_h = max(1, self.root.winfo_height())
