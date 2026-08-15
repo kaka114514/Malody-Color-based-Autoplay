@@ -18,7 +18,7 @@ from color_matcher import ColorMatcher
 from config import load_config, save_config
 from icon_utils import extract_exe_icon
 from input_hook import GlobalKeyHook, MouseReader
-from overlay import BLUE, YELLOW, Overlay
+from overlay import BLUE, YELLOW, CursorDot, Overlay
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -98,6 +98,8 @@ class App:
         self.overlay = Overlay(root)
         self.overlay.hide()
         self.overlay.set_click_callback(self._on_overlay_click)
+        self.dot = CursorDot()
+        self.dot.hide()
 
         self._build_ui()
         self.freq_var.set("检测速度：请运行")
@@ -201,7 +203,7 @@ class App:
         self._status_label = tk.Label(f, textvariable=self.status_var, anchor="w", justify="left")
         self._status_label.pack(fill="x", **pad)
         self._hint_labels = [
-        tk.Label(f, text="6 切换覆盖层显示 | 7 黄框/蓝框切换", anchor="w", justify="left", fg="#666666"),
+        tk.Label(f, text="6 切换覆盖层显示 | 7 黄键/蓝键(采集模式)切换", anchor="w", justify="left", fg="#666666"),
         tk.Label(f, text="8 运行 | 9 暂停", anchor="w", justify="left", fg="#666666"),
         ]
         for lbl in self._hint_labels:
@@ -730,8 +732,10 @@ class App:
             self.overlay.set_frame_color(BLUE if self._frame_blue else YELLOW)
             self.overlay.set_click_block(self._frame_blue)
             if self._frame_blue:
+                self.dot.show_at(*MouseReader.cursor_pos())
                 self.status("蓝框采集模式：点击游戏抓取坐标/颜色（再按7返回）")
             else:
+                self.dot.hide()
                 self.status("黄框正常模式：点击穿透")
             return
         if key == "8":
@@ -774,6 +778,8 @@ class App:
         if pressed and not self._last_left:
             self._on_left_click()
         self._last_left = pressed
+        if self._frame_blue:
+            self.dot.show_at(*MouseReader.cursor_pos())
         if not self._closing:
             self.root.after(30, self._tick_mouse)
 
@@ -838,6 +844,7 @@ class App:
             self.engine.stop()
         self._hook.stop()
         self.overlay.destroy()
+        self.dot.destroy()
         try:
             # 关闭时自动保存到当前配置文件，并记录为最近使用
             save_config(self._config_path, self._build_cfg())

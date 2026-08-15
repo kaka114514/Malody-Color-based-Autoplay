@@ -5,7 +5,7 @@ import win32gui
 import win32con
 
 from capture import grab_rect
-from overlay import BLUE, YELLOW, Overlay
+from overlay import BLUE, YELLOW, CursorDot, Overlay
 
 
 user32 = ctypes.windll.user32
@@ -155,3 +155,36 @@ def test_overlay_blue_dot_center_transparent():
     assert ring == 0x00F6823B, f"蓝点外环应为蓝色: 0x{ring:06X}"
     assert col == 0x00030201, f"蓝点中心应为透明色(1,2,3)，实际 0x{col:06X}"
     ov.destroy()
+
+
+def test_cursor_dot_created():
+    dot = CursorDot()
+    assert dot.hwnd
+    assert win32gui.IsWindow(dot.hwnd)
+    dot.destroy()
+
+
+def test_cursor_dot_hit_test_transparent():
+    """鼠标绿点必须点击穿透。"""
+    dot = CursorDot()
+    dot.show_at(500, 500)
+    time.sleep(0.1)
+    rect = win32gui.GetWindowRect(dot.hwnd)
+    cx, cy = (rect[0] + rect[2]) // 2, (rect[1] + rect[3]) // 2
+    lp = (cy << 16) | (cx & 0xFFFF)
+    assert user32.SendMessageW(dot.hwnd, WM_NCHITTEST, 0, lp) == HTTRANSPARENT
+    dot.destroy()
+
+
+def test_cursor_dot_paints_green():
+    """绿点窗口中心绘制 2px 绿色。"""
+    dot = CursorDot()
+    dot.show_at(500, 500)
+    time.sleep(0.2)
+    hdc = user32.GetDC(dot.hwnd)
+    try:
+        col = gdi32.GetPixel(hdc, 4, 4) & 0xFFFFFF
+    finally:
+        user32.ReleaseDC(dot.hwnd, hdc)
+    assert col == 0x0000FF00, f"中心应为绿色，实际 0x{col:06X}"
+    dot.destroy()
