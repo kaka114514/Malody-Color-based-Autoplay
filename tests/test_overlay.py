@@ -232,7 +232,7 @@ def test_overlay_credit_draws_red_text():
     hdc = user32.GetDC(ov.hwnd)
     red = 0
     try:
-        for y in range(90, 190, 2):
+        for y in range(20, 130, 2):
             for x in range(0, 500, 2):
                 col = gdi32.GetPixel(hdc, x, y) & 0xFFFFFF
                 r = col & 0xFF
