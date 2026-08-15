@@ -11,6 +11,7 @@ user32 = ctypes.windll.user32
 shell32 = ctypes.windll.shell32
 gdi32 = ctypes.windll.gdi32
 DI_NORMAL = 3
+DIB_RGB_COLORS = 0
 
 
 class BITMAPINFOHEADER(ctypes.Structure):
@@ -45,27 +46,27 @@ def extract_exe_icon(exe_path: str, size: int = 32) -> Optional[Image.Image]:
         try:
             hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
             try:
-                hbmp = gdi32.CreateCompatibleBitmap(hdc_screen, size, size)
+                header = BITMAPINFOHEADER()
+                header.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+                header.biWidth = size
+                header.biHeight = -size
+                header.biPlanes = 1
+                header.biBitCount = 32
+                header.biCompression = 0
+                bits = ctypes.c_void_p()
+                hbmp = gdi32.CreateDIBSection(
+                    hdc_mem, ctypes.byref(BITMAPINFO(header)),
+                    DIB_RGB_COLORS, ctypes.byref(bits), None, 0,
+                )
                 try:
                     old = gdi32.SelectObject(hdc_mem, hbmp)
+                    # 清空像素（alpha=0，透明背景）
+                    ctypes.memset(bits, 0, size * size * 4)
                     if not user32.DrawIconEx(hdc_mem, 0, 0, hicon, size, size, 0, None, DI_NORMAL):
                         return None
-
-                    header = BITMAPINFOHEADER()
-                    header.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-                    header.biWidth = size
-                    header.biHeight = -size
-                    header.biPlanes = 1
-                    header.biBitCount = 32
-                    header.biCompression = 0
-                    buf = ctypes.create_string_buffer(size * size * 4)
-                    if not gdi32.GetDIBits(
-                        hdc_mem, hbmp, 0, size, buf,
-                        ctypes.byref(BITMAPINFO(header)), 0,
-                    ):
-                        return None
+                    buf = ctypes.string_at(bits, size * size * 4)
                     gdi32.SelectObject(hdc_mem, old)
-                    return Image.frombytes("RGB", (size, size), buf.raw, "raw", "BGRX")
+                    return Image.frombytes("RGBA", (size, size), buf, "raw", "BGRA")
                 finally:
                     gdi32.DeleteObject(hbmp)
             finally:
