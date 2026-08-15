@@ -576,6 +576,9 @@ class App:
         if self.engine:
             self.engine.stop()
             self.engine = None
+            log.info("pause: engine stopped")
+        else:
+            log.info("pause: no engine running")
         self.overlay.set_watermark(False)
         self.freq_var.set("检测速度：请运行")
         self.run_btn.config(state="normal")

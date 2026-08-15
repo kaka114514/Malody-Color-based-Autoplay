@@ -268,6 +268,8 @@ class Overlay:
         width = max(1, right - left)
         height = max(1, bottom - top)
         with self._lock:
+            if self._rect == tuple(rect):
+                return  # 位置未变化，跳过重绘（避免水印闪烁）
             self._rect = rect
         user32.SetWindowPos(
             self._hwnd, HWND_TOPMOST, left, top, width, height,
@@ -277,12 +279,18 @@ class Overlay:
 
     def set_judgement_y(self, rel_y: float) -> None:
         with self._lock:
-            self._rel_y = max(0.0, min(1.0, rel_y))
+            new_y = max(0.0, min(1.0, rel_y))
+            if self._rel_y == new_y:
+                return
+            self._rel_y = new_y
         self._redraw()
 
     def set_columns(self, rel_xs: List[float], selected: int = -1) -> None:
         with self._lock:
-            self._rel_xs = list(rel_xs)
+            new_xs = list(rel_xs)
+            if self._rel_xs == new_xs and self._selected == selected:
+                return
+            self._rel_xs = new_xs
             self._selected = selected
         self._redraw()
 
