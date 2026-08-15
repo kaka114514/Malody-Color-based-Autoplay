@@ -108,7 +108,9 @@ def icon_to_hicon(img: Image.Image):
     fd, path = tempfile.mkstemp(suffix=".ico")
     os.close(fd)
     try:
-        img.save(path, format="ICO")
+        size = img.size[0]
+        sizes = sorted({(s, s) for s in (16, 32, 48, 64, 128, 256) if s <= size})
+        img.save(path, format="ICO", sizes=sizes)
         hicon = user32.LoadImageW(None, path, 1, 0, 0, 0x0010)  # IMAGE_ICON, LR_LOADFROMFILE
         return int(hicon) or None
     finally:

@@ -208,7 +208,7 @@ class App:
         self.root.bind("<Configure>", self._on_resize)
         self.root.minsize(360, 260)
 
-    def _set_window_icon(self, retries: int = 6) -> None:
+    def _set_window_icon(self, retries: int = 10) -> None:
         """窗口显示后设置 Malody 图标（任务栏生效）。"""
         icon_path = BASE_DIR / "app_icon.png"
         if not icon_path.exists():
@@ -220,21 +220,21 @@ class App:
             hicon = icon_to_hicon(img)
             if hicon is None:
                 return
-            hwnd = int(self.root.winfo_id())
-            # Tk 的 winfo_id 是包装子窗口，任务栏使用真正的顶层窗口
-            get_ancestor = ctypes.windll.user32.GetAncestor
-            get_ancestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
-            get_ancestor.restype = ctypes.c_void_p
-            top = get_ancestor(hwnd, 2)  # GA_ROOT
-            if top:
-                hwnd = int(top)
             send = ctypes.windll.user32.SendMessageW
             send.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
             send.restype = ctypes.c_void_p
-            send(hwnd, 0x0080, 1, hicon)  # WM_SETICON ICON_BIG
-            send(hwnd, 0x0080, 0, hicon)  # WM_SETICON ICON_SMALL
             self._hicon = hicon
-            log.info("icon: set on hwnd=%s (retries left=%s)", hwnd, retries)
+            # 枚举所有可见的标题匹配窗口设置图标（Tk 窗口可能重建）
+            targets = []
+
+            def collect(h, _):
+                if win32gui.GetWindowText(h) == self.root.title() and win32gui.IsWindowVisible(h):
+                    targets.append(h)
+            win32gui.EnumWindows(collect, None)
+            for hwnd in targets:
+                send(hwnd, 0x0080, 1, hicon)  # WM_SETICON ICON_BIG
+                send(hwnd, 0x0080, 0, hicon)  # WM_SETICON ICON_SMALL
+            log.info("icon: set on %s windows (retries left=%s)", len(targets), retries)
         except Exception as exc:
             log.exception("icon: set failed: %s", exc)
         # Tk 主窗口显示过程中可能重建，重试几次确保最终窗口也设置上

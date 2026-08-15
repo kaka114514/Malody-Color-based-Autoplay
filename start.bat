@@ -1,5 +1,9 @@
 @echo off
 cd /d "%~dp0"
+if exist "dist\MalodyAutoplay.exe" (
+    start "" "dist\MalodyAutoplay.exe"
+    exit /b
+)
 where pythonw >nul 2>nul
 if errorlevel 1 (
     echo Python not found. Please install Python 3.11.
