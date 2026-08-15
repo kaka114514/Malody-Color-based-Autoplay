@@ -674,7 +674,7 @@ class App:
         initial_file = self._config_path.name if self._config_path else "config.json"
         path = filedialog.asksaveasfilename(
             title="保存配置",
-            initialdir=str(CONFIG_DIR),
+            initialdir=str(BASE_DIR),
             initialfile=initial_file,
             defaultextension=".json",
             filetypes=[("JSON 配置", "*.json"), ("所有文件", "*.*")],
@@ -691,7 +691,7 @@ class App:
         """弹出打开窗口，选择配置文件并应用全部设置。"""
         path = filedialog.askopenfilename(
             title="选择配置文件",
-            initialdir=str(CONFIG_DIR),
+            initialdir=str(BASE_DIR),
             filetypes=[("JSON 配置", "*.json"), ("所有文件", "*.*")],
         )
         if not path:
