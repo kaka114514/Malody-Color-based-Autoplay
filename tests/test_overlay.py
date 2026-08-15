@@ -128,7 +128,7 @@ def test_overlay_frame_color_toggle_back():
     time.sleep(0.1)
     hdc = user32.GetDC(ov.hwnd)
     try:
-        col = gdi32.GetPixel(hdc, 250, 3) & 0xFFFFFF
+        col = gdi32.GetPixel(hdc, 250, 6) & 0xFFFFFF
     finally:
         user32.ReleaseDC(ov.hwnd, hdc)
     assert col == 0x00D8FF, f"边框应为黄色，实际 0x{col:06X}"
