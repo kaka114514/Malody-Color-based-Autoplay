@@ -253,9 +253,9 @@ class App:
             img = grab_rect((sx, sy, sx + 1, sy + 1))
             color = sample_pixel(img, 0, 0)
         except Exception as exc:
-            self.status(f"读取颜色失败: {exc}")
+            self.status("读取颜色失败")
             return
-        self.status(f"坐标 ({sx}, {sy})  颜色 RGB{tuple(color)}")
+        self.status(f"坐标 ({sx}, {sy}) 颜色值 {tuple(color)}")
 
     def _tick_messages(self) -> None:
         try:
@@ -443,7 +443,7 @@ class App:
             img = grab_rect((x, y, x + 1, y + 1))
             color = sample_pixel(img, 0, 0)
         except Exception as exc:
-            self.status(f"取色失败: {exc}")
+            self.status("取色失败，请重试")
             return
         if self.mode == "eyedrop_bg":
             self.matcher.add_background(color)
@@ -458,7 +458,7 @@ class App:
             self.matcher.add_key(color)
         self.eyedrop_active = False
         self._refresh_swatches()
-        self.status(f"已吸取 RGB{tuple(color)}，按 1 继续吸色")
+        self.status(f"已吸取颜色 {tuple(color)}，按 1 继续吸色")
 
     # ---------- 延迟 ----------
     def apply_delay_entry(self) -> None:

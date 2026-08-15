@@ -219,8 +219,8 @@ class AutoplayEngine:
             bbox = make_bbox(screen_points, pad=2)
             try:
                 img = grab_rect(bbox)
-            except Exception as exc:
-                self._on_log(f"截屏失败: {exc}")
+            except Exception:
+                self._on_log("截屏失败，已跳过本帧")
                 time.sleep(0.01)
                 continue
 
