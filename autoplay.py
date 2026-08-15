@@ -243,7 +243,7 @@ class AutoplayEngine:
                 last_states = list(states)
                 labels = {"bg": "背景", "key": "按键", "unknown": "未知"}
                 detail = " ".join(
-                    f"{self._keys[i]}:{labels.get(cls, cls)}"
+                    f"{i + 1}({self._keys[i]}):{labels.get(cls, cls)}"
                     for i, cls in enumerate(states)
                 )
                 self._on_log(f"state: {detail}")
