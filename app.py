@@ -201,8 +201,8 @@ class App:
         self._status_label = tk.Label(f, textvariable=self.status_var, anchor="w", justify="left")
         self._status_label.pack(fill="x", **pad)
         self._hint_labels = [
-        tk.Label(f, text="6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换", anchor="w", justify="left", fg="#666666"),
-            tk.Label(f, text="9 运行 | 0 暂停", anchor="w", justify="left", fg="#666666"),
+        tk.Label(f, text="6 切换覆盖层显示 | 7 黄框/蓝框切换", anchor="w", justify="left", fg="#666666"),
+        tk.Label(f, text="8 运行 | 9 暂停", anchor="w", justify="left", fg="#666666"),
         ]
         for lbl in self._hint_labels:
             lbl.pack(fill="x", **pad)
@@ -713,33 +713,31 @@ class App:
             self.nudge_delay(-5 if key == "4" else 5)
             return
         if key == "6":
-            # 隐藏覆盖层并把游戏窗口置前
-            self._overlay_visible = False
-            self.overlay.hide()
-            if self.game_hwnd:
-                wu.set_foreground(self.game_hwnd)
-            self.status("覆盖层已隐藏（按 7 显示）")
+            # 切换覆盖层显示状态
+            self._overlay_visible = not self._overlay_visible
+            if self._overlay_visible:
+                self._refresh_tracking()
+                if self.game_hwnd:
+                    wu.set_foreground(self.game_hwnd)
+                self.status("覆盖层已显示")
+            else:
+                self.overlay.hide()
+                self.status("覆盖层已隐藏")
             return
         if key == "7":
-            # 显示覆盖层
-            self._overlay_visible = True
-            self._refresh_tracking()
-            self.status("覆盖层已显示")
-            return
-        if key == "8":
             # 切换黄框/蓝框采集模式
             self._frame_blue = not self._frame_blue
             self.overlay.set_frame_color(BLUE if self._frame_blue else YELLOW)
             self.overlay.set_click_block(self._frame_blue)
             if self._frame_blue:
-                self.status("蓝框采集模式：点击游戏抓取坐标/颜色（再按8返回）")
+                self.status("蓝框采集模式：点击游戏抓取坐标/颜色（再按7返回）")
             else:
                 self.status("黄框正常模式：点击穿透")
             return
-        if key == "9":
+        if key == "8":
             self.on_run()
             return
-        if key == "0":
+        if key == "9":
             self.on_pause()
             return
         if self.mode == "judgement":
