@@ -66,10 +66,10 @@ def test_overlay_frame_renders_yellow():
     hdc = user32.GetDC(ov.hwnd)
     try:
         # 窗口客户区 (0,0,500,400) 内四边采样（黄框 10px）
-        top = gdi32.GetPixel(hdc, 250, 3) & 0xFFFFFF
-        left = gdi32.GetPixel(hdc, 3, 100) & 0xFFFFFF
-        right = gdi32.GetPixel(hdc, 496, 100) & 0xFFFFFF
-        bottom = gdi32.GetPixel(hdc, 250, 396) & 0xFFFFFF
+        top = gdi32.GetPixel(hdc, 250, 6) & 0xFFFFFF
+        left = gdi32.GetPixel(hdc, 6, 100) & 0xFFFFFF
+        right = gdi32.GetPixel(hdc, 494, 100) & 0xFFFFFF
+        bottom = gdi32.GetPixel(hdc, 250, 394) & 0xFFFFFF
     finally:
         user32.ReleaseDC(ov.hwnd, hdc)
     yellow_bgr = 0x00D8FF  # RGB(255,216,0)
@@ -100,7 +100,7 @@ def test_overlay_blue_block_mode():
     assert user32.SendMessageW(ov.hwnd, WM_NCHITTEST, 0, lp) == 1  # HTCLIENT
     hdc = user32.GetDC(ov.hwnd)
     try:
-        col = gdi32.GetPixel(hdc, 250, 3) & 0xFFFFFF
+        col = gdi32.GetPixel(hdc, 250, 6) & 0xFFFFFF
     finally:
         user32.ReleaseDC(ov.hwnd, hdc)
     assert col == 0x00F6823B, f"边框应为蓝色，实际 0x{col:06X}"  # BGR of (59,130,246)
