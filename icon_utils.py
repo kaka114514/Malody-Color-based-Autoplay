@@ -1,0 +1,76 @@
+"""从 exe 提取图标并转为 PIL 图像。"""
+
+import ctypes
+from ctypes import wintypes
+from typing import Optional
+
+from PIL import Image
+
+
+user32 = ctypes.windll.user32
+shell32 = ctypes.windll.shell32
+gdi32 = ctypes.windll.gdi32
+DI_NORMAL = 3
+
+
+class BITMAPINFOHEADER(ctypes.Structure):
+    _fields_ = [
+        ("biSize", wintypes.DWORD),
+        ("biWidth", wintypes.LONG),
+        ("biHeight", wintypes.LONG),
+        ("biPlanes", wintypes.WORD),
+        ("biBitCount", wintypes.WORD),
+        ("biCompression", wintypes.DWORD),
+        ("biSizeImage", wintypes.DWORD),
+        ("biXPelsPerMeter", wintypes.LONG),
+        ("biYPelsPerMeter", wintypes.LONG),
+        ("biClrUsed", wintypes.DWORD),
+        ("biClrImportant", wintypes.DWORD),
+    ]
+
+
+class BITMAPINFO(ctypes.Structure):
+    _fields_ = [("bmiHeader", BITMAPINFOHEADER)]
+
+
+def extract_exe_icon(exe_path: str, size: int = 32) -> Optional[Image.Image]:
+    """提取 exe 的第一个大图标并绘制为指定尺寸的 RGB 图像。"""
+    hicons = (ctypes.c_void_p * 1)()
+    count = shell32.ExtractIconExW(exe_path, 0, hicons, None, 1)
+    if count <= 0 or not hicons[0]:
+        return None
+    hicon = hicons[0]
+    try:
+        hdc_screen = user32.GetDC(None)
+        try:
+            hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
+            try:
+                hbmp = gdi32.CreateCompatibleBitmap(hdc_screen, size, size)
+                try:
+                    old = gdi32.SelectObject(hdc_mem, hbmp)
+                    if not user32.DrawIconEx(hdc_mem, 0, 0, hicon, size, size, 0, None, DI_NORMAL):
+                        return None
+
+                    header = BITMAPINFOHEADER()
+                    header.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+                    header.biWidth = size
+                    header.biHeight = -size
+                    header.biPlanes = 1
+                    header.biBitCount = 32
+                    header.biCompression = 0
+                    buf = ctypes.create_string_buffer(size * size * 4)
+                    if not gdi32.GetDIBits(
+                        hdc_mem, hbmp, 0, size, buf,
+                        ctypes.byref(BITMAPINFO(header)), 0,
+                    ):
+                        return None
+                    gdi32.SelectObject(hdc_mem, old)
+                    return Image.frombytes("RGB", (size, size), buf.raw, "raw", "BGRX")
+                finally:
+                    gdi32.DeleteObject(hbmp)
+            finally:
+                gdi32.DeleteDC(hdc_mem)
+        finally:
+            user32.ReleaseDC(None, hdc_screen)
+    finally:
+        user32.DestroyIcon(hicon)

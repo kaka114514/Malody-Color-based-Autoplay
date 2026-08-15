@@ -9,17 +9,20 @@ from tkinter import filedialog, messagebox
 from typing import List, Optional, Tuple
 
 import win32gui
+from PIL import ImageTk
 
 import window_utils as wu
 from autoplay import AutoplayEngine
 from capture import grab_rect, sample_pixel
 from color_matcher import ColorMatcher
 from config import load_config, save_config
+from icon_utils import extract_exe_icon
 from input_hook import GlobalKeyHook, MouseReader
 from overlay import BLUE, YELLOW, Overlay
 
 
 BASE_DIR = Path(__file__).resolve().parent
+MALODY_EXE = Path(r"D:\App\Game\Malody\malody.exe")
 CONFIG_DIR = BASE_DIR / "configs"
 CONFIG_PATH = CONFIG_DIR / "config.json"
 LAST_CONFIG_FILE = CONFIG_DIR / ".last"
@@ -50,8 +53,17 @@ def resolve_config_path(config_dir: Path = CONFIG_DIR) -> Path:
 class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("Malody 颜色自动游玩")
+        self.root.title("Malody Color-based Autoplay")
         self.root.resizable(True, True)
+        # 使用 Malody 游戏图标作为程序图标
+        if MALODY_EXE.exists():
+            try:
+                icon_img = extract_exe_icon(str(MALODY_EXE), 32)
+                if icon_img is not None:
+                    self._icon_photo = ImageTk.PhotoImage(icon_img)
+                    self.root.iconphoto(True, self._icon_photo)
+            except Exception:
+                pass
 
         self._config_path = resolve_config_path()
         self.cfg = load_config(self._config_path)
@@ -187,8 +199,7 @@ class App:
         self._status_label = tk.Label(f, textvariable=self.status_var, anchor="w", justify="left")
         self._status_label.pack(fill="x", **pad)
         self._hint_labels = [
-            tk.Label(f, text="热键：4 延迟-5ms | 5 延迟+5ms", anchor="w", justify="left", fg="#666666"),
-            tk.Label(f, text="6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换", anchor="w", justify="left", fg="#666666"),
+        tk.Label(f, text="6 隐藏覆盖层+游戏前置 | 7 显示覆盖层 | 8 黄框/蓝框切换", anchor="w", justify="left", fg="#666666"),
             tk.Label(f, text="9 运行 | 0 暂停", anchor="w", justify="left", fg="#666666"),
         ]
         for lbl in self._hint_labels:
